@@ -1,0 +1,24 @@
+# secretos (usar .streamlit/secrets.toml.example como plantilla)
+.streamlit/secrets.toml
+.env
+*.env
+
+# base de datos local: se regenera desde data/seed_avisos.csv
+data/avisos.db
+data/fotos/
+
+# datasets y salidas de entrenamiento (no se redistribuyen)
+datasets/
+runs/
+*.zip
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# sistema
+.DS_Store
