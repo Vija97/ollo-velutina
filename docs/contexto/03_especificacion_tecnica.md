@@ -73,9 +73,12 @@ Tabla `avisos`:
 1. **Entrada**: imagen (cámara o archivo) + tipo opcional (insecto/nido; por defecto "no sé").
 2. **Ubicación**: `geo.get_exif_gps(img)`; si devuelve None → pedir clic en el mapa (`st_folium(...)["last_clicked"]`). Por defecto centrar el mapa en la ETSE (42.8782, -8.5448).
 3. **Clasificación**:
-   - Si es insecto o "no sé": ejecutar YOLO. Si hay detección con confianza ≥ 0,70 → resultado YOLO; además se llama al LLM solo para la explicación breve.
-   - Si confianza < 0,70, no hay detección o es nido → llamar al LLM con la imagen (salida JSON, ver §7).
-   - Si ambos discrepan → `no_concluyente` y pedir otra foto.
+   - Ejecutar YOLO siempre (también en nidos: detecta las avispas sobre el nido).
+   - Detección con confianza ≥ 0,70:
+     - **Nido + velutina** → resultado YOLO (rápido y estable, sin LLM).
+     - **Nido + crabro** → segunda opinión del LLM, **sin decirle que YOLO ve crabro**; si alguno detecta velutina, gana velutina; crabro solo si los dos lo ven; si no, `no_concluyente`.
+     - **Insecto** → segunda opinión del LLM; gana velutina si alguno la detecta; un crabro de YOLO se mantiene si el LLM no lo confirma; confianza final < 0,70 → pedir otra foto.
+   - Sin detección o confianza < 0,70 → llamar al LLM con la imagen (salida JSON, ver §7).
 4. **Duplicados**: buscar avisos del mismo tipo y especie compatible (§8) en radio ≤ 50 m y últimos 30 días (haversine). Si existe → marcar `duplicado_de` y mostrar "Ya hay un aviso a X m del {fecha}. No hace falta volver a llamar."
 5. **Guardar** en SQLite.
 6. **Resultado en pantalla**: especie, confianza (barra), explicación, mensajes de seguridad, y si es velutina y no duplicado → botón "Generar aviso para el 012" (texto generado por LLM, ver §7) + botón copiar.

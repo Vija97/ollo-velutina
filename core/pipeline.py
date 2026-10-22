@@ -50,40 +50,58 @@ def _clasificar(imagen_bytes: bytes, tipo: str) -> tuple[dict, str]:
     yolo = clasificar_yolo(imagen_bytes)
     resumen = f"{yolo['especie']} {yolo['confianza']:.2f}" if yolo else ""
 
-    # YOLO con confianza suficiente: manda YOLO; el LLM solo aporta la explicación.
     if yolo and yolo["confianza"] >= UMBRAL_CONFIANZA:
-        especie = yolo["especie"]
-        if tipo == "nido":
-            # En nidos el detector es estable y rápido; no dependemos del LLM.
+        # Nido con velutina: el detector es rápido y estable, no hace falta el LLM.
+        if tipo == "nido" and yolo["especie"] == "velutina":
             return {
                 "tipo": "nido",
-                "especie": especie,
+                "especie": "velutina",
                 "confianza": yolo["confianza"],
-                "rasgos_observados": RASGOS_YOLO.get(especie, []),
-                "explicacion": EXPLICACION_YOLO.get(especie, ""),
+                "rasgos_observados": RASGOS_YOLO["velutina"],
+                "explicacion": EXPLICACION_YOLO["velutina"],
                 "consejo_foto": "",
             }, "yolo"
+
+        # Insecto, o nido con crabro: segunda opinión del LLM.
+        # No se le dice que YOLO ve un crabro: se lo cree y es justo donde falla.
+        resumen_llm = "" if yolo["especie"] == "crabro" else resumen
         try:
-            llm = analizar_imagen(imagen_bytes, tipo, resumen)
+            llm = analizar_imagen(imagen_bytes, tipo, resumen_llm)
         except Exception:
             llm = None
-        if llm and llm["especie"] not in ("no_concluyente", especie):
-            # En insectos, si YOLO y el LLM discrepan, no nos la jugamos (spec §5.3).
-            return _no_concluyente(
-                "insecto", "El modelo de imagen y el análisis visual no coinciden."
-            ), "yolo+llm"
-        explicacion = (llm or {}).get("explicacion") or EXPLICACION_YOLO.get(especie, "")
-        resultado = {
-            "tipo": "insecto",
-            "especie": especie,
-            "confianza": yolo["confianza"],
-            "rasgos_observados": (llm or {}).get("rasgos_observados", []),
-            "explicacion": explicacion,
-            "consejo_foto": "",
-        }
-        return resultado, "yolo+llm" if llm else "yolo"
 
-    # Sin detección, confianza baja o nido: decide el LLM.
+        tipo_final = "nido" if tipo == "nido" else "insecto"
+        especie_llm = (llm or {}).get("especie", "no_concluyente")
+        if "velutina" in (yolo["especie"], especie_llm):
+            # Ante la duda gana la velutina: un falso "crabro" deja pasar una invasora.
+            especie = "velutina"
+            if especie_llm == "velutina":
+                confianza = float(llm["confianza"])
+                if yolo["especie"] == "velutina":
+                    confianza = max(confianza, yolo["confianza"])
+            else:
+                confianza = yolo["confianza"]
+        elif yolo["especie"] == "crabro" and especie_llm == "crabro":
+            especie, confianza = "crabro", min(yolo["confianza"], float(llm["confianza"]))
+        elif tipo != "nido" and yolo["especie"] == "crabro":
+            # En insectos, un crabro de YOLO es fiable: el LLM solo no lo confirma.
+            especie, confianza = "crabro", yolo["confianza"]
+        else:
+            return _no_concluyente(
+                tipo_final, "El modelo de imagen y el análisis visual no coinciden."
+            ), "yolo+llm"
+
+        return {
+            "tipo": tipo_final,
+            "especie": especie,
+            "confianza": confianza,
+            "rasgos_observados": (llm or {}).get("rasgos_observados") or RASGOS_YOLO.get(especie, []),
+            "explicacion": (llm or {}).get("explicacion") or EXPLICACION_YOLO.get(especie, ""),
+            # Con confianza baja se pide otra foto, también si la especie es velutina (AGENTS.md).
+            "consejo_foto": CONSEJO_OTRA_FOTO if confianza < UMBRAL_CONFIANZA else "",
+        }, "yolo+llm" if llm else "yolo"
+
+    # Sin detección, confianza baja o nido sin avispas claras: decide el LLM.
     llm = analizar_imagen(imagen_bytes, tipo, resumen)
     tipo_final = "nido" if tipo == "nido" else llm["tipo"]
     return {
