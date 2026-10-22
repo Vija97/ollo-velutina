@@ -4,7 +4,7 @@
 1. Subir o hacer una foto de un insecto o nido.
 2. Clasificación: modelo YOLO propio para insectos + LLM multimodal (Claude) para nidos, casos de baja confianza y explicación.
 3. Ubicación: GPS de los metadatos EXIF de la foto o, si no hay, clic en el mapa.
-4. Detección de duplicados (radio 50 m, últimos 30 días, misma categoría).
+4. Detección de duplicados (radio 50 m, últimos 30 días, mismo tipo y especie compatible, ver §8).
 5. Mapa compartido con todos los avisos (colores por especie).
 6. Aviso generado listo para copiar/enviar al 012.
 7. Página "Sobre el modelo" con métricas (precisión, recall, matriz de confusión).
@@ -77,7 +77,7 @@ Tabla `avisos`:
    - Si es insecto o "no sé": ejecutar YOLO. Si hay detección con confianza ≥ 0,70 → resultado YOLO; además se llama al LLM solo para la explicación breve.
    - Si confianza < 0,70, no hay detección o es nido → llamar al LLM con la imagen (salida JSON, ver §7).
    - Si ambos discrepan → `no_concluyente` y pedir otra foto.
-4. **Duplicados**: buscar avisos con misma especie en radio ≤ 50 m y últimos 30 días (haversine). Si existe → marcar `duplicado_de` y mostrar "Ya hay un aviso a X m del {fecha}. No hace falta volver a llamar."
+4. **Duplicados**: buscar avisos del mismo tipo y especie compatible (§8) en radio ≤ 50 m y últimos 30 días (haversine). Si existe → marcar `duplicado_de` y mostrar "Ya hay un aviso a X m del {fecha}. No hace falta volver a llamar."
 5. **Guardar** en SQLite.
 6. **Resultado en pantalla**: especie, confianza (barra), explicación, mensajes de seguridad, y si es velutina y no duplicado → botón "Generar aviso para el 012" (texto generado por LLM, ver §7) + botón copiar.
 
@@ -150,7 +150,9 @@ def haversine_m(lat1, lon1, lat2, lon2):
     a = sin(dlat/2)**2 + cos(radians(lat1))*cos(radians(lat2))*sin(dlon/2)**2
     return 2*R*asin(sqrt(a))
 ```
-Regla: misma `especie`, distancia ≤ 50 m, `created_at` ≥ ahora − 30 días, `duplicado_de IS NULL` en el candidato. Devolver el más cercano.
+Regla: mismo `tipo`, especie compatible, distancia ≤ 50 m, `created_at` ≥ ahora − 30 días, `duplicado_de IS NULL` en el candidato. Devolver el más cercano.
+
+Especie compatible: la misma especie, o que una de las dos sea `no_concluyente` (p. ej. una foto del nido sale `velutina` y otra `no_concluyente` → duplicado). `velutina` frente a `crabro` u `otra` no es duplicado.
 
 ## 9. Datos de demo
 - `data/seed_avisos.csv`: 25–40 avisos ficticios repartidos por Santiago y alrededores (Conxo, Sar, Vite, Milladoiro, Ames, Teo), marcados como "datos de ejemplo" en la interfaz.
