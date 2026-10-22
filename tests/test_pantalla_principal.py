@@ -205,3 +205,38 @@ def test_ejemplos_de_reserva_tienen_campos_del_contrato_pr1():
         resultado = crear_resultado_demo(escenario, "nido", 42.0, -8.0)
         assert resultado["tipo"] == "nido"
         assert {"rasgos_observados", "consejo_foto", "duplicado_distancia_m", "duplicado_fecha"} <= resultado.keys()
+
+
+def test_boton_012_solo_para_velutina_no_duplicada():
+    casos = [
+        (_resultado(), True),
+        (_resultado(especie="crabro"), False),
+        (
+            _resultado(
+                duplicado_de=7,
+                estado="duplicado",
+                duplicado_distancia_m=12.0,
+                duplicado_fecha="2026-10-21T09:12:00",
+            ),
+            False,
+        ),
+        (_resultado(especie="no_concluyente", consejo_foto="Otra foto"), False),
+    ]
+    for aviso, esperado in casos:
+        with patch("core.pipeline.procesar", return_value=aviso):
+            app = _app().run(timeout=30)
+            app.button[-1].click().run()
+        etiquetas = [boton.label for boton in app.button]
+        assert ("Generar aviso para el 012" in etiquetas) is esperado, aviso["especie"]
+
+
+def test_boton_012_genera_y_muestra_el_texto():
+    with patch("core.pipeline.procesar", return_value=_resultado()), patch(
+        "core.llm.generar_aviso_012", return_value="Aviso al 012 de prueba"
+    ) as generar:
+        app = _app().run(timeout=30)
+        app.button[-1].click().run()
+        [boton for boton in app.button if boton.label == "Generar aviso para el 012"][0].click().run()
+
+    assert generar.called
+    assert "Aviso al 012 de prueba" in "\n".join(codigo.value for codigo in app.code)

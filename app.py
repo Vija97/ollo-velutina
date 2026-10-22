@@ -7,7 +7,7 @@ import folium
 import streamlit as st
 from streamlit_folium import st_folium
 
-from core import geo, pipeline
+from core import geo, llm, pipeline
 from ui.demo import fotos_demo, leer_fotografia
 
 
@@ -152,6 +152,7 @@ def main():
                 try:
                     st.session_state.resultado = pipeline.procesar(original, tipo, *ubicacion)
                     st.session_state.firma_resultado = firma
+                    st.session_state.pop("texto_012", None)
                 except Exception as error:
                     st.session_state.pop("resultado", None)
                     st.error(f"No se pudo analizar la fotografía: {error}")
@@ -180,6 +181,25 @@ def main():
                     st.warning(f"Posible duplicado: Ya hay un aviso a {resultado['duplicado_distancia_m']:.0f} m del {fecha}. No hace falta volver a llamar por el mismo aviso.", icon="📍")
                 fuente = {"yolo": "YOLO", "llm": "LLM", "yolo+llm": "YOLO + LLM"}.get(resultado["fuente_clasificacion"], resultado["fuente_clasificacion"])
                 st.caption(f"Ubicación: {resultado['lat']:.5f}, {resultado['lon']:.5f} · Fuente: {fuente} · Aviso #{resultado['id']} ({resultado['estado']})")
+
+                # §5.6: solo velutina y no duplicado.
+                if resultado["especie"] == "velutina" and resultado["duplicado_de"] is None:
+                    st.divider()
+                    if st.button(
+                        "Generar aviso para el 012",
+                        width="stretch",
+                        key=f"generar_012_{resultado['id']}",
+                    ):
+                        with st.spinner("Redactando el aviso para el 012…"):
+                            try:
+                                st.session_state.texto_012 = llm.generar_aviso_012(resultado)
+                            except Exception as error:
+                                st.session_state.pop("texto_012", None)
+                                st.error(f"No se pudo generar el aviso: {error}")
+                    if st.session_state.get("texto_012"):
+                        st.markdown("**Texto listo para copiar**")
+                        st.code(st.session_state.texto_012, language=None)
+                        st.caption("Usa el icono de copiar de la esquina del bloque.")
     seguridad()
     st.html('<footer class="footer"><strong>ollo velutina</strong><span>Cuidamos lo que nos rodea.</span><span>Identificación orientativa · Los canales oficiales verifican cada aviso.</span></footer>')
 
