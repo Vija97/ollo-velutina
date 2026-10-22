@@ -1,0 +1,6 @@
+{
+  "repository": { "owner": "Vija97", "name": "ollo-velutina" },
+  "project": { "owner": "Vija97", "owner_type": "User", "number": 1 },
+  "status_field": "Status",
+  "statuses": ["Por hacer", "En curso", "En revisión", "Bloqueadas", "Hechas"]
+}

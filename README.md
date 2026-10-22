@@ -22,6 +22,8 @@ streamlit run app.py
 
 ## Cómo trabajamos
 
+Tablero: https://github.com/users/Vija97/projects/1
+
 Issue pequeña → rama `feat/<n>-<slug>` → PR con `Closes #<n>` → **1 aprobación**
 de otra persona → squash merge. `main` está protegida y siempre debe arrancar.
 Desde las 17:45, solo arreglos que rompen la demo.

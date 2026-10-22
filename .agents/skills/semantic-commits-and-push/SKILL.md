@@ -275,6 +275,8 @@ Always pass the target explicitly (`--repo <owner>/<repo> --base main --head <br
 
 Use `.github/pull_request_template.md`. The description must summarize what changed and why, based on the commits created, say how it was tested (or that it was not), and include `Closes #<n>` when the branch name or `$ARGUMENTS` identifies the Issue. Keep it short: this is a hackathon and one teammate must be able to review it in a few minutes.
 
+If the PR closes an Issue that is on the board of `.github/project-config.json`, move that Issue to `En revisión`.
+
 Do not merge the pull request, do not enable auto-merge, and do not approve it. If `gh` is not available or not authenticated, skip this step and give the user the branch name and the compare URL instead.
 
 ## Final summary
