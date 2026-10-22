@@ -123,6 +123,24 @@ if split.get("protocolo"):
         "El dataset completo no se redistribuye: vive en `datasets/` (ignorado por git)."
     )
 
+negativas = datos.get("negativas") or {}
+if negativas:
+    licencias = ", ".join(negativas.get("licencias") or [])
+    st.markdown(
+        f"**Negativas de entrenamiento:** {negativas.get('imagenes_train', '—')} imágenes de "
+        f"[iNaturalist](https://www.inaturalist.org) (abejas, *Vespula*, *Polistes* y *Bombus*) · "
+        f"**Licencias:** {licencias} · solo en `train` y **solo en local** "
+        "(no se redistribuyen)."
+    )
+    reserva = negativas.get("reserva_test")
+    falsas = negativas.get("falsas_alarmas") or {}
+    if reserva:
+        st.caption(
+            f"Reserva de {reserva} negativas no vistas: falsas alarmas "
+            f"{falsas.get('modelo_anterior', '—')} con el modelo anterior y "
+            f"{falsas.get('modelo_nuevo', '—')} con el nuevo."
+        )
+
 limitacion = datos.get("limitacion_conocida")
 if limitacion:
     st.warning(limitacion, icon="⚠️")
