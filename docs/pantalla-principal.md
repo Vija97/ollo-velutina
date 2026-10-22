@@ -1,83 +1,79 @@
 # Probar la pantalla principal · issue #8
 
-Esta rama implementa únicamente la pantalla principal. No implementa la página
-del mapa de avisos (#9), los botones del 012 (#11) ni la conexión al pipeline (#12).
-`core/` y sus contratos no se modifican. La salida de demostración contiene los
-campos de resultado adicionales de la PR #1, todavía pendiente de fusionar.
+La pantalla principal funciona con **fotografías de demo ya clasificadas**. La
+especie y la confianza que se muestran salen de ejecutar `models/best.pt` sobre
+cada foto y guardar el resultado en `demo_images/clasificaciones.csv`; la app no
+vuelve a analizar la imagen. No implementa la página del mapa (#9), los botones
+del 012 (#11) ni la conexión al pipeline (#12). `core/` y sus contratos no se
+modifican.
 
 ## Qué se puede probar
 
 1. Arranca la aplicación desde la raíz del repositorio:
 
    ```bash
-   source .venv/bin/activate
+   source .venv/bin/activate     # en Windows: .\.venv\Scripts\Activate.ps1
    streamlit run app.py
    ```
 
-   En Windows, activa el entorno con `.venv\Scripts\activate`.
-   Si aún no tienes entorno local, sigue la instalación de `README.md`.
-   El entorno en la nube ya tiene las dependencias instaladas.
-2. Si la ejecutas en tu ordenador, abre en el navegador la dirección que aparece
-   en la terminal. Un servidor dentro del entorno de Codex no publica por sí solo
-   una web accesible desde tu ordenador.
-3. Sube una foto JPG, PNG o WEBP de hasta 10 MB, o selecciona **Usar cámara**.
-   Para la cámara debes permitir el acceso en el navegador y usar HTTPS o una
-   ejecución local. En la demostración se admite cualquier foto válida:
-   **su contenido no se analiza**.
-4. Elige **Insecto**, **Nido** o **No lo sé**.
+2. Abre la dirección que aparece en la terminal (`http://localhost:8501`).
+3. En **01 · Tu fotografía**, elige una **Fotografía de ejemplo**: velutina,
+   velutina duplicada, avispón europeo o no concluyente. También puedes subir
+   una de las cuatro fotos de `demo_images/`; se reconocen por su contenido.
+   Si subes otra foto, la app avisa de que no está clasificada y ofrece las de
+   ejemplo.
+4. Elige **Insecto**, **Nido** o **No lo sé**. En esta fase el tipo y la especie
+   se toman de la clasificación guardada.
 5. Pulsa en el mapa para situar el encuentro. También puedes abrir **Elegir
    coordenadas o usar una ubicación de ejemplo** y elegir la ETSE.
-6. Selecciona un **Resultado de ejemplo** y pulsa **Analizar fotografía**.
-   Prueba velutina, avispón europeo, otra especie, duplicado y no concluyente.
+6. Pulsa **Analizar fotografía**.
 
-Los resultados y su confianza son **simulados**, no predicciones. No se llama a
-ninguna API de IA, no se guardan fotos ni avisos y no se usa ninguna clave.
-Los avisos de seguridad aparecen siempre. Al cambiar la fotografía, el tipo,
-el lugar o el escenario, el resultado anterior se retira hasta volver a analizar.
-Las fotos se validan y normalizan en memoria, se eliminan sus metadatos y se
-reduce su tamaño para visualizarlas. La ubicación se elige manualmente: todavía
-no se extrae el GPS de los metadatos.
+Los cuatro casos cubren la comprobación de #8: nido de velutina, nido de avispón
+europeo, duplicado (18 m, con fecha) y no concluyente (con consejo para otra foto). Los
+mensajes de seguridad aparecen siempre. Al cambiar la foto, el tipo o el lugar,
+el resultado anterior se retira hasta volver a analizar.
 
-El mapa necesita acceso a `cdn.jsdelivr.net` y `tile.openstreetmap.org`.
-Si no carga, la entrada manual de coordenadas permite continuar. Se han guardado
-los dominios necesarios en el borrador de configuración del entorno; ese borrador
-no equivale a haber publicado una nueva versión del entorno.
+La ubicación se elige manualmente: todavía no se extrae el GPS de los metadatos.
+Las fotos se validan y normalizan en memoria para mostrarlas, sin escribir nada
+en disco ni llamar a ninguna API.
 
-## Pendiente para cerrar #8
+El mapa necesita acceso a `cdn.jsdelivr.net` y `tile.openstreetmap.org`. Si no
+carga, la entrada manual de coordenadas permite continuar.
 
-En el entorno solo había `.gitkeep` en `data/`, `models/` y `metrics/`, y ninguna
-fotografía en `demo_images/`. Faltan las **fotos reales clasificadas de la base de
-datos del equipo**. Cuando estén disponibles hay que construir el resultado a
-partir de esos registros y probar una foto de cada especie. Los ejemplos actuales
-no satisfacen ese criterio; la PR debe usar `Refs #8` y la issue seguir abierta.
-No se han descargado fotos ajenas ni añadido datasets al repositorio.
+## Procedencia de las fotos
+
+Las cuatro son fotogramas del split `test` del dataset de Roboflow
+«[Original] Vespa crabro and Vespa Velutina» v2 (**CC BY 4.0**). Fuente y licencia
+de cada archivo, en `demo_images/FUENTES.md`. El dataset completo no se
+redistribuye: vive en `datasets/` y `.gitignore` lo excluye.
+
+Las clasificaciones del manifiesto se generaron con:
+
+```python
+from ultralytics import YOLO
+modelo = YOLO("models/best.pt")
+modelo.predict(source="demo_images/velutina_1.jpg", imgsz=640, device="cpu")
+```
 
 ## Comprobaciones
 
 Desde la raíz:
 
 ```bash
-.venv/bin/python -m pytest -q
+python -m pytest -q
 ```
 
-Las pruebas cubren inicio, validación de imágenes, botón de análisis, todos los
-resultados, confianza, rasgos, consejos, seguridad, retirada de resultados antiguos
-y la ruta de entrada de cámara mediante una captura simulada.
+**16 pruebas superadas en esta rama** (22 al fusionar también el mapa de #9): inicio, validación de imágenes, manifiesto, un
+resultado por cada foto (velutina, crabro, duplicado y no concluyente), confianza,
+rasgos, consejos, seguridad, retirada de resultados antiguos, subida por huella,
+foto no clasificada, cámara simulada y el mapa de #9.
 
-Además se ha probado en Chromium: subida por el control real del navegador,
-clic en el mapa, cinco escenarios, archivo dañado, captura con cámara virtual
-y anchura móvil de 390 px sin desbordamiento horizontal. La cámara física de
-tu portátil debe probarse antes de presentar la demo. Las comprobaciones visuales
-no validan la precisión de IA ni el funcionamiento de módulos todavía pendientes.
+Además se ha probado en Chromium con la app real: selección de las cuatro fotos,
+subida por el control de archivos, clic en el mapa, popup y casos de duplicado y
+no concluyente. La cámara física del portátil debe probarse antes de la demo.
 
 ## Seguimiento en GitHub
 
-La issue #8 ya está asignada a `IagoVarelaR`. Si la integración no puede editar
-el tablero, abre https://github.com/users/Vija97/projects/1, busca la tarjeta #8
-y cambia **Status** a **En revisión** cuando exista la PR.
-
-Para revisar la PR, pulsa **Files changed** y lee los cambios. Pide a otra persona
-del equipo que haga la revisión y apruebe. Esta PR no cierra #8 automáticamente:
-tras fusionar esta primera entrega, la issue sigue pendiente de las fotos reales.
-No marques **Hechas** hasta completar y comprobar ese requisito. El siguiente
-trabajo, #9, depende de que estén disponibles los avisos de #2.
+La issue #8 está asignada a `IagoVarelaR`. Con esta entrega se cumplen sus tres
+comprobaciones, así que la PR puede usar `Closes #8`. La conexión al modelo en
+vivo sigue siendo #12.

@@ -1,15 +1,96 @@
-"""Ejemplos SIMULADOS, sin clasificación ni llamadas al backend.
+"""Fotos de demostración ya clasificadas y ejemplos simulados de reserva.
 
-La salida sigue el contrato de la PR #1. No sustituye las fotos clasificadas
-de la base de datos que requiere la issue #8.
+`cargar_registros` lee `demo_images/clasificaciones.csv`: una fila por foto real
+con su clasificación (hecha con `models/best.pt`). La forma del resultado sigue
+el contrato de la PR #1, así que al conectar el pipeline solo cambia la fuente.
 """
 
+import csv
+import hashlib
 from io import BytesIO
+from pathlib import Path
 import warnings
 
 from PIL import Image, ImageOps, UnidentifiedImageError
 
+RAIZ = Path(__file__).resolve().parents[1]
+MANIFIESTO = RAIZ / "demo_images" / "clasificaciones.csv"
+
 ESCENARIOS = ("Posible velutina", "Avispón europeo", "Otra especie", "Posible duplicado", "No concluyente")
+
+
+def _numero(valor, defecto=None):
+    try:
+        return float(valor)
+    except (TypeError, ValueError):
+        return defecto
+
+
+def cargar_registros(ruta: Path | str = MANIFIESTO) -> list[dict]:
+    """Fotos reales con su clasificación guardada. Ignora filas sin archivo."""
+    ruta = Path(ruta)
+    if not ruta.is_file():
+        return []
+
+    registros = []
+    with ruta.open(newline="", encoding="utf-8-sig") as archivo:
+        for fila in csv.DictReader(archivo):
+            foto = Path(fila.get("foto_path", ""))
+            if not foto.is_absolute():
+                foto = (RAIZ / foto).resolve()
+            if not foto.is_file():
+                continue
+            registros.append(
+                {
+                    "foto_path": foto,
+                    "sha256": hashlib.sha256(foto.read_bytes()).hexdigest(),
+                    "tipo": fila.get("tipo") or "no_se",
+                    "especie": fila.get("especie") or "no_concluyente",
+                    "confianza": _numero(fila.get("confianza"), 0.0),
+                    "fuente_clasificacion": fila.get("fuente_clasificacion") or "yolo",
+                    "explicacion": fila.get("explicacion") or "",
+                    "rasgos_observados": [
+                        rasgo.strip()
+                        for rasgo in (fila.get("rasgos_observados") or "").split("|")
+                        if rasgo.strip()
+                    ],
+                    "consejo_foto": fila.get("consejo_foto") or "",
+                    "duplicado_de": _numero(fila.get("duplicado_de")),
+                    "duplicado_distancia_m": _numero(fila.get("duplicado_distancia_m")),
+                    "duplicado_fecha": fila.get("duplicado_fecha") or None,
+                    "created_at": fila.get("created_at") or "",
+                }
+            )
+    return registros
+
+
+def buscar_registro(registros: list[dict], contenido: bytes) -> dict | None:
+    """Devuelve el registro cuya foto coincide byte a byte con la subida."""
+    huella = hashlib.sha256(contenido).hexdigest()
+    return next((registro for registro in registros if registro["sha256"] == huella), None)
+
+
+def crear_resultado_registro(registro: dict, lat: float, lon: float) -> dict:
+    """Resultado con los campos de `core.pipeline.procesar` (PR #1)."""
+    duplicado = registro["duplicado_de"] is not None
+    return {
+        "id": 1,
+        "created_at": registro["created_at"],
+        "lat": lat,
+        "lon": lon,
+        "tipo": registro["tipo"],
+        "especie": registro["especie"],
+        "confianza": registro["confianza"],
+        "fuente_clasificacion": registro["fuente_clasificacion"],
+        "explicacion": registro["explicacion"],
+        "foto_path": str(registro["foto_path"]),
+        "duplicado_de": registro["duplicado_de"],
+        "estado": "duplicado" if duplicado else "nuevo",
+        "rasgos_observados": registro["rasgos_observados"],
+        "consejo_foto": registro["consejo_foto"],
+        "duplicado_distancia_m": registro["duplicado_distancia_m"],
+        "duplicado_fecha": registro["duplicado_fecha"],
+    }
 
 
 def leer_fotografia(contenido: bytes) -> bytes:
