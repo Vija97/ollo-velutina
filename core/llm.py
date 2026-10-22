@@ -5,11 +5,13 @@ import io
 import json
 import os
 import re
+import urllib.request
 
-import anthropic
 from PIL import Image, ImageOps
 
-MODELO = "claude-sonnet-5-5"
+# DeepSeek V4.1 Flash vía la API de OpenCode (formato compatible con OpenAI), spec §7.1.
+ENDPOINT = "https://opencode.ai/inference/openai/v1/chat/completions"
+MODELO = os.environ.get("OPENCODE_MODEL", "deepseek-v4.1-flash")
 
 # §7.1, literal.
 SYSTEM_ANALISIS = """Eres un experto entomólogo en especies invasoras de Galicia. Analizas una foto enviada por un ciudadano para decidir si muestra una avispa velutina (Vespa velutina) o su nido.
@@ -39,11 +41,10 @@ ESPECIES = ("velutina", "crabro", "otra", "no_concluyente")
 # Configuración del proveedor. Se lee de st.secrets si estamos dentro de
 # Streamlit y, si no hay valor, de variables de entorno. Así el módulo funciona
 # también desde pytest o un script suelto.
-CLAVES = ("LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL", "ANTHROPIC_API_KEY")
+CLAVE = "OPENCODE_API_KEY"
 
 LADO_MAX = 1280  # px de lado máximo antes de enviar la imagen
 MAX_TOKENS = 600
-SIN_RAZONAMIENTO = {"type": "disabled"}
 
 CONSEJO_FOTO = (
     "Haz otra foto más cerca y con buena luz, enfocando al insecto o al nido "
@@ -66,38 +67,16 @@ def _secreto(nombre: str) -> str:
 
 
 def modelo() -> str:
-    """Modelo a usar: LLM_MODEL si está definido; si no, MODELO (Anthropic)."""
-    return _secreto("LLM_MODEL") or MODELO
+    """Modelo a usar: `OPENCODE_MODEL` si está definido; si no, DeepSeek V4.1 Flash."""
+    return _secreto("OPENCODE_MODEL") or MODELO
 
 
-_cliente: anthropic.Anthropic | None = None
-
-
-def cliente() -> anthropic.Anthropic:
-    """Cliente de Anthropic, creado una sola vez por proceso.
-
-    Con LLM_BASE_URL apunta a una capa compatible (OpenRouter) usando
-    LLM_API_KEY como auth_token; sin ella, habla con Anthropic con
-    ANTHROPIC_API_KEY.
-    """
-    global _cliente
-    if _cliente is None:
-        base_url = _secreto("LLM_BASE_URL")
-        if base_url:
-            api_key = _secreto("LLM_API_KEY")
-            if not api_key:
-                raise ValueError("Falta LLM_API_KEY en .streamlit/secrets.toml o el entorno.")
-            _cliente = anthropic.Anthropic(
-                auth_token=api_key,
-                api_key=None,
-                base_url=base_url,
-            )
-        else:
-            api_key = _secreto("ANTHROPIC_API_KEY")
-            if not api_key:
-                raise ValueError("Falta ANTHROPIC_API_KEY en .streamlit/secrets.toml o el entorno.")
-            _cliente = anthropic.Anthropic(api_key=api_key)
-    return _cliente
+def _clave() -> str:
+    """Clave de la API de OpenCode. Falla pronto si no está configurada."""
+    clave = _secreto(CLAVE)
+    if not clave:
+        raise ValueError(f"Falta {CLAVE} en .streamlit/secrets.toml o el entorno.")
+    return clave
 
 
 def _imagen_para_llm(imagen_bytes: bytes) -> bytes:
@@ -186,14 +165,24 @@ def _validar(datos: dict, tipo_usuario: str) -> dict:
 
 
 def _llamar(mensajes: list) -> str:
-    respuesta = cliente().messages.create(
-        model=modelo(),
-        max_tokens=MAX_TOKENS,
-        system=SYSTEM_ANALISIS,
-        thinking=SIN_RAZONAMIENTO,
-        messages=mensajes,
+    """POST a la API de OpenCode (formato OpenAI) y devuelve el texto de respuesta."""
+    cuerpo = {
+        "model": modelo(),
+        "max_tokens": MAX_TOKENS,
+        "messages": [{"role": "system", "content": SYSTEM_ANALISIS}, *mensajes],
+    }
+    peticion = urllib.request.Request(
+        ENDPOINT,
+        data=json.dumps(cuerpo).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {_clave()}",
+        },
+        method="POST",
     )
-    return "".join(b.text for b in respuesta.content if b.type == "text")
+    with urllib.request.urlopen(peticion, timeout=60) as respuesta:
+        datos = json.loads(respuesta.read().decode("utf-8"))
+    return str(datos["choices"][0]["message"].get("content") or "")
 
 
 def analizar_imagen(imagen_bytes: bytes, tipo: str, yolo_resumen: str = "") -> dict:
@@ -211,15 +200,15 @@ def analizar_imagen(imagen_bytes: bytes, tipo: str, yolo_resumen: str = "") -> d
             "role": "user",
             "content": [
                 {
-                    "type": "image",
-                    "source": {"type": "base64", "media_type": "image/jpeg", "data": b64},
-                },
-                {
                     "type": "text",
                     "text": (
                         f"Tipo indicado por el usuario: {tipo}. "
                         f"Resultado del modelo YOLO (puede ser vacío): {yolo_resumen}"
                     ),
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/jpeg;base64,{b64}"},
                 },
             ],
         }
