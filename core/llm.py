@@ -6,6 +6,7 @@ import json
 import os
 import re
 import urllib.request
+from datetime import datetime
 
 from PIL import Image, ImageOps
 
@@ -34,9 +35,22 @@ Responde SOLO con un JSON válido con esta forma:
   "consejo_foto": "si no es concluyente, cómo hacer una foto mejor; si no, cadena vacía"
 }"""
 
+# §7.2, literal. Los datos van en el hueco {json_del_aviso}.
+PROMPT_AVISO = """Redacta un aviso breve y claro (máx. 80 palabras) para el servicio 012 de la Xunta de Galicia sobre un posible nido o avistamiento de avispa velutina. Incluye: tipo (insecto/nido), especie probable y confianza, coordenadas (lat, lon) con enlace a OpenStreetMap, referencia de lugar si se conoce, fecha y hora, y que la identificación es automática y orientativa. Tono neutro, en castellano.
+Datos: {json_del_aviso}"""
+
 # Valores cerrados de AGENTS.md.
 TIPOS = ("insecto", "nido")
 ESPECIES = ("velutina", "crabro", "otra", "no_concluyente")
+
+MAX_PALABRAS_AVISO = 80
+FECHA_FALLO = "sin fecha"
+
+
+class _TextoLLM(str):
+    """Texto del LLM con el `finish_reason` de la respuesta (p. ej. ``length``)."""
+
+    finish_reason: str | None = None
 
 # Configuración del proveedor. Se lee de st.secrets si estamos dentro de
 # Streamlit y, si no hay valor, de variables de entorno. Así el módulo funciona
@@ -164,12 +178,12 @@ def _validar(datos: dict, tipo_usuario: str) -> dict:
     }
 
 
-def _llamar(mensajes: list) -> str:
+def _llamar(mensajes: list, sistema: str = SYSTEM_ANALISIS) -> str:
     """POST a la API de OpenCode (formato OpenAI) y devuelve el texto de respuesta."""
     cuerpo = {
         "model": modelo(),
         "max_tokens": MAX_TOKENS,
-        "messages": [{"role": "system", "content": SYSTEM_ANALISIS}, *mensajes],
+        "messages": [{"role": "system", "content": sistema}, *mensajes],
     }
     peticion = urllib.request.Request(
         ENDPOINT,
@@ -182,7 +196,10 @@ def _llamar(mensajes: list) -> str:
     )
     with urllib.request.urlopen(peticion, timeout=60) as respuesta:
         datos = json.loads(respuesta.read().decode("utf-8"))
-    return str(datos["choices"][0]["message"].get("content") or "")
+    eleccion = datos["choices"][0]
+    texto = _TextoLLM(eleccion["message"].get("content") or "")
+    texto.finish_reason = eleccion.get("finish_reason")
+    return texto
 
 
 def analizar_imagen(imagen_bytes: bytes, tipo: str, yolo_resumen: str = "") -> dict:
@@ -235,6 +252,173 @@ def analizar_imagen(imagen_bytes: bytes, tipo: str, yolo_resumen: str = "") -> d
     return _validar(datos, tipo)
 
 
+def _formatear_fecha(valor) -> str:
+    """Fecha del aviso como dd/mm/aaaa HH:MM; si no se entiende, ``FECHA_FALLO``."""
+    if isinstance(valor, datetime):
+        fecha = valor
+    elif valor:
+        try:
+            fecha = datetime.fromisoformat(str(valor).strip().replace("Z", "+00:00"))
+        except (TypeError, ValueError):
+            return FECHA_FALLO
+    else:
+        fecha = datetime.now()
+    if fecha.tzinfo is not None:
+        fecha = fecha.astimezone()
+    return fecha.strftime("%d/%m/%Y %H:%M")
+
+
+def _confianza_pct(valor) -> int:
+    """Confianza en porcentaje entero, aceptando 0-1 (contrato) o 0-100."""
+    try:
+        confianza = float(valor)
+    except (TypeError, ValueError):
+        confianza = 0.0
+    if 0.0 <= confianza <= 1.0:
+        confianza *= 100.0
+    return int(round(max(0.0, min(100.0, confianza))))
+
+
+def _datos_aviso(aviso: dict) -> tuple[dict, str]:
+    """Solo los datos de §7.2; el enlace y las coordenadas los fija el código."""
+    lat = f"{float(aviso['lat']):.5f}"
+    lon = f"{float(aviso['lon']):.5f}"
+    enlace = (
+        f"https://www.openstreetmap.org/?mlat={lat}&mlon={lon}"
+        f"#map=18/{lat}/{lon}"
+    )
+    datos = {
+        "tipo": _tipo_seguro(aviso.get("tipo")),
+        "especie": str(aviso.get("especie") or "no_concluyente").strip().lower(),
+        "confianza": _confianza_pct(aviso.get("confianza")),
+        "lat": lat,
+        "lon": lon,
+        "enlace": enlace,
+        "fecha": _formatear_fecha(aviso.get("created_at") or aviso.get("fecha")),
+    }
+    for clave in ("lugar", "referencia_lugar", "referencia", "direccion"):
+        valor = aviso.get(clave)
+        if valor and str(valor).strip():
+            datos["lugar"] = str(valor).strip()
+            break
+    return datos, enlace
+
+
+def _contar_palabras(texto: str, enlace: str) -> int:
+    """Palabras del aviso sin contar el enlace de OpenStreetMap."""
+    return len((texto or "").replace(enlace, " ").split())
+
+
+def _limpiar_aviso(texto: str) -> str:
+    """Quita vallas, comillas y encabezados tipo «Aquí tienes el aviso:»."""
+    limpio = (texto or "").strip()
+    limpio = re.sub(r"^```[A-Za-z0-9_-]*\s*", "", limpio)
+    limpio = re.sub(r"\s*```$", "", limpio).strip()
+
+    lineas = limpio.splitlines()
+    while lineas:
+        primera = lineas[0].strip()
+        if not primera:
+            lineas.pop(0)
+        elif re.match(
+            r"^(aqu[ií] tienes|este es|el texto|el aviso|texto|aviso)\b[^.]*:\s*$",
+            primera,
+            re.I,
+        ):
+            lineas.pop(0)
+        else:
+            break
+    limpio = "\n".join(lineas).strip()
+    limpio = re.sub(
+        r"^(aqu[ií] tienes el aviso|este es el aviso|el aviso|aviso)\s*:\s*",
+        "",
+        limpio,
+        flags=re.I,
+    ).strip()
+
+    while len(limpio) >= 2 and limpio[0] in "\"'“”‘’" and limpio[-1] in "\"'“”‘’":
+        limpio = limpio[1:-1].strip()
+    return limpio
+
+
+def _texto_fallback(datos: dict) -> str:
+    """Plantilla sin LLM: mismos datos y aviso de identificación orientativa."""
+    que = "nido" if datos["tipo"] == "nido" else "avistamiento"
+    partes = [
+        f"Aviso al 012 (tipo: {datos['tipo']}): posible {que} de avispa.",
+        (
+            f"Especie probable: {datos['especie']}, "
+            f"confianza del {datos['confianza']} %."
+        ),
+        (
+            f"Ubicación: {datos['lat']}, {datos['lon']} – "
+            f"{datos['enlace']}."
+        ),
+    ]
+    if datos.get("lugar"):
+        partes.append(f"Lugar: {datos['lugar']}.")
+    partes.extend(
+        [
+            f"Fecha: {datos['fecha']}.",
+            "Identificación automática y orientativa.",
+        ]
+    )
+    return " ".join(partes)
+
+
+def _respuesta_aviso(mensajes: list, prompt: str) -> tuple[str, bool]:
+    """Devuelve el texto limpio y si la respuesta se cortó por `max_tokens`."""
+    respuesta = _llamar(mensajes, sistema=prompt)
+    truncada = getattr(respuesta, "finish_reason", None) == "length"
+    return _limpiar_aviso(str(respuesta)), truncada
+
+
 def generar_aviso_012(aviso: dict) -> str:
     """Texto de §7.2 (máx. 80 palabras) listo para copiar."""
-    raise NotImplementedError
+    datos, enlace = _datos_aviso(aviso)
+    prompt = PROMPT_AVISO.replace(
+        "{json_del_aviso}", json.dumps(datos, ensure_ascii=False)
+    )
+    mensajes = [
+        {"role": "user", "content": "Redacta el aviso siguiendo las instrucciones."}
+    ]
+
+    try:
+        texto, truncada = _respuesta_aviso(mensajes, prompt)
+    except Exception:
+        return _texto_fallback(datos)
+    if truncada or not texto:
+        return _texto_fallback(datos)
+
+    palabras = _contar_palabras(texto, enlace)
+    if palabras > MAX_PALABRAS_AVISO:
+        mensajes = mensajes + [
+            {"role": "assistant", "content": texto},
+            {
+                "role": "user",
+                "content": (
+                    f"El texto tiene {palabras} palabras sin contar el enlace. "
+                    f"Acórtalo a un máximo de {MAX_PALABRAS_AVISO} palabras, "
+                    "conservando el enlace y las coordenadas."
+                ),
+            },
+        ]
+        try:
+            texto, truncada = _respuesta_aviso(mensajes, prompt)
+        except Exception:
+            return _texto_fallback(datos)
+        if (
+            truncada
+            or not texto
+            or _contar_palabras(texto, enlace) > MAX_PALABRAS_AVISO
+        ):
+            return _texto_fallback(datos)
+
+    if enlace not in texto or datos["lat"] not in texto or datos["lon"] not in texto:
+        texto = (
+            f"{texto.rstrip()}\n"
+            f"Ubicación: {datos['lat']}, {datos['lon']} – {enlace}"
+        )
+        if _contar_palabras(texto, enlace) > MAX_PALABRAS_AVISO:
+            return _texto_fallback(datos)
+    return texto
