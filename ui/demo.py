@@ -15,6 +15,12 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 
 RAIZ = Path(__file__).resolve().parents[1]
 MANIFIESTO = RAIZ / "demo_images" / "clasificaciones.csv"
+FOTOS_DEMO = RAIZ / "demo_images"
+
+
+def fotos_demo(ruta: Path | str = FOTOS_DEMO) -> list[Path]:
+    """Fotografías de ejemplo disponibles para la demo, en orden estable."""
+    return sorted(foto for foto in Path(ruta).glob("*.jpg") if foto.is_file())
 
 ESCENARIOS = ("Posible velutina", "Avispón europeo", "Otra especie", "Posible duplicado", "No concluyente")
 

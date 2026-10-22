@@ -23,6 +23,12 @@ if origen == "datos de ejemplo":
         "para probar la aplicación. No son avistamientos reales.",
         icon="🧪",
     )
+else:
+    st.warning(
+        "**Datos de ejemplo y avisos de la demostración.** El mapa incluye los "
+        "avisos ficticios del seed y los creados durante la demostración.",
+        icon="🧪",
+    )
 
 if not avisos:
     st.info(
