@@ -2,7 +2,7 @@
 
 ## 1. Alcance del MVP (lo que SÍ entra mañana)
 1. Subir o hacer una foto de un insecto o nido.
-2. Clasificación: modelo YOLO propio para insectos + LLM multimodal (Claude) para nidos, casos de baja confianza y explicación.
+2. Clasificación: modelo YOLO propio para insectos + LLM multimodal (API de OpenCode) para nidos, casos de baja confianza y explicación.
 3. Ubicación: GPS de los metadatos EXIF de la foto o, si no hay, clic en el mapa.
 4. Detección de duplicados (radio 50 m, últimos 30 días, misma categoría).
 5. Mapa compartido con todos los avisos (colores por especie).
@@ -17,7 +17,7 @@
 | App | **Streamlit** (Python 3.11) | El equipo domina Python; UI en minutos; `st.camera_input` y `st.file_uploader` |
 | Mapa | **folium + streamlit-folium** | Marcadores, clic para ubicar, heatmap |
 | Clasificador | **ultralytics YOLO11n** (detección) entrenado en Colab | Rápido de entrenar (20–40 min en GPU T4), se ejecuta en CPU |
-| LLM | **API de Claude** con visión, modelo `claude-sonnet-5-5`, SDK `anthropic` | Nidos, casos dudosos, explicación y texto del aviso |
+| LLM | **API de OpenCode** con visión (modelo configurable en OpenCode) | Nidos, casos dudosos, explicación y texto del aviso |
 | Datos | **SQLite** (`data/avisos.db`) | Cero configuración |
 | EXIF | **Pillow** | Extraer GPS de la foto |
 | Despliegue | Local en el portátil para la demo; opcional Streamlit Community Cloud | Menos riesgo |
@@ -28,7 +28,6 @@ streamlit
 streamlit-folium
 folium
 ultralytics
-anthropic
 pillow
 pandas
 ```
@@ -42,7 +41,7 @@ ollo-velutina/
 │   └── 2_Sobre_el_modelo.py# Métricas y datasets/licencias
 ├── core/
 │   ├── classifier.py       # Carga YOLO y clasifica
-│   ├── llm.py              # Llamadas a Claude (análisis y aviso)
+│   ├── llm.py              # Llamadas a la API de OpenCode (análisis y aviso)
 │   ├── geo.py              # EXIF GPS + haversine + duplicados
 │   ├── db.py               # SQLite: crear tabla, insertar, listar
 │   └── pipeline.py         # Orquesta todo el flujo
@@ -51,7 +50,7 @@ ollo-velutina/
 ├── data/seed_avisos.csv    # Avisos de ejemplo para que el mapa no salga vacío
 ├── demo_images/            # Fotos de prueba para la demo (plan B sin cámara)
 ├── metrics/                # confusion_matrix.png, results.json
-└── .streamlit/secrets.toml # ANTHROPIC_API_KEY (no subir a git)
+└── .streamlit/secrets.toml # credenciales de la API de OpenCode (no subir a git)
 ```
 
 ## 4. Modelo de datos (SQLite)
@@ -124,15 +123,11 @@ Responde SOLO con un JSON válido con esta forma:
   "consejo_foto": "si no es concluyente, cómo hacer una foto mejor; si no, cadena vacía"
 }
 ```
-Llamada (esquema):
-```python
-client.messages.create(
-    model="claude-sonnet-5-5", max_tokens=600, system=SYSTEM_ANALISIS,
-    messages=[{"role": "user", "content": [
-        {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": b64}},
-        {"type": "text", "text": f"Tipo indicado por el usuario: {tipo}. Resultado del modelo YOLO (puede ser vacío): {yolo_resumen}"}
-    ]}])
-```
+Llamada (esquema): petición HTTP a la **API de OpenCode** (servidor local) con
+`SYSTEM_ANALISIS`, la imagen en base64, el texto del usuario y `max_tokens=600`.
+El modelo con visión se configura en OpenCode, **no se fija en el código**. Sin
+SDK propietario: cliente HTTP estándar. Endpoint exacto, en la referencia de la
+API de OpenCode.
 Parsear con `json.loads`; si falla, reintentar una vez pidiendo "solo JSON"; si vuelve a fallar → `no_concluyente`.
 
 ### 7.2 Texto del aviso al 012

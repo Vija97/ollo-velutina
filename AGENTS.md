@@ -72,7 +72,7 @@ Valores cerrados (no inventar otros):
 
 ## Secretos, datos y licencias (el repo es público)
 
-- `ANTHROPIC_API_KEY` y la clave de Roboflow solo en `.streamlit/secrets.toml`
+- La clave de la **API de OpenCode** y la de Roboflow solo en `.streamlit/secrets.toml`
   o variables de entorno. Nunca en código, notebooks, capturas ni commits.
 - No subir datasets. Solo `models/best.pt`, métricas y las fotos de `demo_images/`
   cuya licencia permita redistribución (anotar fuente y licencia en
