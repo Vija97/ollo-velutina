@@ -20,6 +20,26 @@ streamlit run app.py
 
 `models/best.pt` (YOLO) es opcional: sin él, todo se clasifica con el LLM (plan B).
 
+## Dataset
+
+El dataset no está en el repo (`datasets/` está en `.gitignore`). Pablo lo comparte
+ya descomprimido y preparado: hay que copiar la carpeta tal cual en
+`datasets/velutina-original/`, de forma que dentro estén directamente `train/`,
+`valid/`, `test/` y `data.yaml`.
+
+El `data.yaml` ya viene cambiado con `path: datasets/velutina-original` y las rutas
+`train/images`, `valid/images` y `test/images`, así que no hay que tocarlo. El
+entrenamiento se lanza desde la raíz del repo.
+
+- **Clases**: `Vespa-Crabro` (0) y `Vespa-Velutina` (1). En `core/classifier.py`
+  se convierten a `crabro` / `velutina`.
+- **Origen y licencia**: Roboflow, "[Original] Vespa crabro and Vespa Velutina"
+  v2 (`hornet-behavior`, formato YOLOv11, **CC BY 4.0**, 364 imágenes:
+  255 train / 73 valid / 36 test).
+
+> **Aviso**: las métricas de test salen optimistas porque los tres splits contienen
+> fotogramas de los mismos vídeos. Hay que validar también con `demo_images/`.
+
 ## Cómo trabajamos
 
 Issue pequeña → rama `feat/<n>-<slug>` → PR con `Closes #<n>` → **1 aprobación**
