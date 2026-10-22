@@ -16,18 +16,34 @@
     "licencia": "CC BY 4.0",
     "imagenes": 364,
     "secuencias_de_video": 19,
-    "clases": ["Vespa-Crabro", "Vespa-Velutina"]
+    "clases": [
+      "Vespa-Crabro",
+      "Vespa-Velutina"
+    ]
   },
   "split": {
     "protocolo": "por secuencia de vídeo: ningún frame de un vídeo de test está en train",
-    "train": { "imagenes": 234, "secuencias": 11 },
+    "train": {
+      "imagenes": 234,
+      "secuencias": 11
+    },
     "valid": {
       "imagenes": 59,
-      "secuencias": ["MAH06732", "MAH06395", "Vespa-crabro-Germany-3", "Vespa-crabro-Pete-Roof-2"]
+      "secuencias": [
+        "MAH06732",
+        "MAH06395",
+        "Vespa-crabro-Germany-3",
+        "Vespa-crabro-Pete-Roof-2"
+      ]
     },
     "test": {
       "imagenes": 71,
-      "secuencias": ["MAH00002", "MAH06782", "Vespa-crabro-Germany-1", "Vespa-crabro-Pete-Roof-3"]
+      "secuencias": [
+        "MAH00002",
+        "MAH06782",
+        "Vespa-crabro-Germany-1",
+        "Vespa-crabro-Pete-Roof-3"
+      ]
     }
   },
   "valid": {
@@ -46,8 +62,22 @@
     "mAP50": 0.389,
     "mAP50_95": 0.147,
     "por_clase": {
-      "Vespa-Crabro": { "imagenes": 34, "instancias": 58, "precision": 0.337, "recall": 0.845, "mAP50": 0.591, "mAP50_95": 0.223 },
-      "Vespa-Velutina": { "imagenes": 37, "instancias": 99, "precision": 0.455, "recall": 0.135, "mAP50": 0.188, "mAP50_95": 0.0703 }
+      "Vespa-Crabro": {
+        "imagenes": 34,
+        "instancias": 58,
+        "precision": 0.337,
+        "recall": 0.845,
+        "mAP50": 0.591,
+        "mAP50_95": 0.223
+      },
+      "Vespa-Velutina": {
+        "imagenes": 37,
+        "instancias": 99,
+        "precision": 0.455,
+        "recall": 0.135,
+        "mAP50": 0.188,
+        "mAP50_95": 0.0703
+      }
     }
   },
   "umbral_demo_0_70": {
@@ -68,7 +98,170 @@
   "fugas_de_datos": {
     "duplicados_exactos_entre_splits": 0,
     "pares_casi_duplicados_en_el_split_original_de_roboflow": 420,
-    "nota": "El split de Roboflow reparte frames del mismo vídeo entre train y valid/test; por eso se rehizo por secuencia."
+    "nota": "El split de Roboflow reparte frames del mismo vídeo entre train y valid/test; por eso se rehizo por secuencia.",
+    "comprobacion_test_vs_train_valid": {
+      "comparado_con": "[Original] train+valid",
+      "imagenes_test": 71,
+      "imagenes_referencia": 293,
+      "criterios": {
+        "hash_exacto": "SHA-256 del contenido del archivo",
+        "nombre_original": "nombre antes de '.rf.' (normalizado)",
+        "hash_perceptual": "dHash y pHash de 64 bits; distancia de Hamming <= 5"
+      },
+      "pares_hash_exacto": 0,
+      "pares_mismo_nombre_original": 0,
+      "pares_casi_duplicados": 0,
+      "pares_casi_duplicados_misma_secuencia": 0,
+      "pares_casi_duplicados_distinta_secuencia": 0,
+      "ejemplos_pares_casi_duplicados": []
+    },
+    "new_original": {
+      "comprobado": false,
+      "metodo": "SHA-256 + nombre original + dHash/pHash de 64 bits",
+      "umbral_hamming": 5,
+      "pares": null,
+      "motivo": "No se pudo descargar: falta la clave de Roboflow en el entorno.",
+      "conclusion": "[New original] NO se ha comprobado contra el test. Por tanto, NO se puede usar para entrenar sin repetir antes esta comprobación de duplicados (hash exacto, nombre original y hash perceptual).",
+      "indicio_no_sustitutivo": {
+        "fuente": "https://universe.roboflow.com/hornet-behavior/-new-original-crabro-and-velutina",
+        "observacion": "La vista pública de Roboflow muestra, entre otras, MAH00002_000004.jpg y MAH06782_000018.jpg, ambas del test por secuencia. Es un indicio de solapamiento, no la comprobación completa que sigue pendiente."
+      }
+    }
   },
-  "limitacion_conocida": "El test contiene escenas de nido (MAH00002, MAH06782) que no aparecen en train. En ellas el modelo confunde velutina con crabro con confianza alta (hasta 0.83). En imágenes del dominio de train acierta (velutina 0.70-0.81, crabro 0.85). No sirve para decidir velutina sin el LLM."
+  "limitacion_conocida": "El test contiene escenas de nido (MAH00002, MAH06782) que no aparecen en train. En ellas el modelo confunde velutina con crabro con confianza alta (hasta 0.83). En imágenes del dominio de train acierta (velutina 0.70-0.81, crabro 0.85). No sirve para decidir velutina sin el LLM.",
+  "verificacion_yolo": {
+    "medido": {
+      "precision": 0.3959,
+      "recall": 0.49,
+      "mAP50": 0.3892,
+      "mAP50_95": 0.1465
+    },
+    "comparacion_con_results_json": {
+      "precision": {
+        "results_json": 0.396,
+        "medido": 0.3959,
+        "diferencia": 0.0001,
+        "coincide_0_01": true
+      },
+      "recall": {
+        "results_json": 0.49,
+        "medido": 0.49,
+        "diferencia": 0.0,
+        "coincide_0_01": true
+      },
+      "mAP50": {
+        "results_json": 0.389,
+        "medido": 0.3892,
+        "diferencia": 0.0002,
+        "coincide_0_01": true
+      }
+    },
+    "coincide_0_01": true,
+    "matrices_copiadas": [
+      "confusion_matrix.png",
+      "confusion_matrix_normalized.png"
+    ],
+    "save_dir": "runs/val_split_secuencia"
+  },
+  "cifra_pitch": "En las 71 fotos de test, el flujo completo de la demo (YOLO + LLM) acierta 47 (66 %); el LLM por separado acierta 35 de 71 (49 %). Fuente: metrics/results.json.",
+  "fecha_evaluacion": "2026-10-22",
+  "llm_test": {
+    "n": 71,
+    "n_total": 71,
+    "errores_api": 0,
+    "imagenes_error_api": [],
+    "modelo": "deepseek/deepseek-v4.1-flash-1017",
+    "componentes": "LLM",
+    "fecha": "2026-10-22",
+    "definicion_acierto": "especie predicha igual a la clase mayoritaria real; 'otra' y 'no_concluyente' cuentan como fallo. Las llamadas con error de API se excluyen del denominador y se cuentan aparte.",
+    "acierto_global": 0.493,
+    "aciertos": 35,
+    "acierto_por_clase": {
+      "crabro": {
+        "aciertos": 13,
+        "total": 34,
+        "acierto": 0.3824
+      },
+      "velutina": {
+        "aciertos": 22,
+        "total": 37,
+        "acierto": 0.5946
+      }
+    },
+    "pct_no_concluyente": 0.338,
+    "pct_otra": 0.1549,
+    "acierto_entre_concluyentes": 0.7447,
+    "matriz_confusion": {
+      "crabro": {
+        "velutina": 1,
+        "crabro": 13,
+        "otra": 10,
+        "no_concluyente": 10
+      },
+      "velutina": {
+        "velutina": 22,
+        "crabro": 0,
+        "otra": 1,
+        "no_concluyente": 14
+      }
+    },
+    "imagenes_con_mezcla_de_clases": [],
+    "commit_main": "be44df3bf578e21b2183a01bfc5075fcfe9b5147"
+  },
+  "pipeline_test": {
+    "n": 71,
+    "n_total": 71,
+    "errores_api": 0,
+    "imagenes_error_api": [],
+    "modelo": "deepseek/deepseek-v4.1-flash-1017",
+    "componentes": "YOLO models/best.pt + LLM",
+    "fecha": "2026-10-22",
+    "definicion_acierto": "especie predicha igual a la clase mayoritaria real; 'otra' y 'no_concluyente' cuentan como fallo. Las llamadas con error de API se excluyen del denominador y se cuentan aparte.",
+    "acierto_global": 0.662,
+    "aciertos": 47,
+    "acierto_por_clase": {
+      "crabro": {
+        "aciertos": 26,
+        "total": 34,
+        "acierto": 0.7647
+      },
+      "velutina": {
+        "aciertos": 21,
+        "total": 37,
+        "acierto": 0.5676
+      }
+    },
+    "pct_no_concluyente": 0.2254,
+    "pct_otra": 0.0282,
+    "acierto_entre_concluyentes": 0.8545,
+    "matriz_confusion": {
+      "crabro": {
+        "velutina": 3,
+        "crabro": 26,
+        "otra": 0,
+        "no_concluyente": 5
+      },
+      "velutina": {
+        "velutina": 21,
+        "crabro": 3,
+        "otra": 2,
+        "no_concluyente": 11
+      }
+    },
+    "fuentes_clasificacion": {
+      "yolo+llm": 40,
+      "llm": 31
+    },
+    "imagenes_con_mezcla_de_clases": [],
+    "commit_main": "be44df3bf578e21b2183a01bfc5075fcfe9b5147"
+  },
+  "evaluacion": {
+    "commit_main": "be44df3bf578e21b2183a01bfc5075fcfe9b5147",
+    "modelo_llm": "deepseek/deepseek-v4.1-flash-1017",
+    "core_llm_sha256": "5985e932ad60c817ef3c9bf9f33d6c2b1c434fed029ea81d29449d6fba3e351a",
+    "core_pipeline_sha256": "f67f6272b45d58e3b042eeefc64f93b2ac265aba101595d0aeed8136d88b2115",
+    "cache_llm": "datasets/cache_llm.json (ignorada por git)",
+    "nota_cache": "La caché se indexa por hash de imagen, modelo y hash de core/llm.py; si cambia el prompt, el modelo o la lógica, se vuelve a llamar a la API.",
+    "fecha": "2026-10-22"
+  }
 }
