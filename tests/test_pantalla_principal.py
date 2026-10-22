@@ -1,4 +1,4 @@
-"""Pruebas de la UI de #8: fotos reales clasificadas y seguridad."""
+"""Pruebas de la UI de #8 y de la conexión al pipeline de #12."""
 
 from io import BytesIO
 from pathlib import Path
@@ -9,10 +9,12 @@ from PIL import Image
 import pytest
 from streamlit.testing.v1 import AppTest
 
+from core import geo
 from ui.demo import (
     ESCENARIOS,
     cargar_registros,
     crear_resultado_demo,
+    fotos_demo,
     leer_fotografia,
 )
 
@@ -24,6 +26,29 @@ def _app():
     app = AppTest.from_file(RAIZ / "app.py")
     app.session_state["ubicacion"] = UBICACION
     return app
+
+
+def _resultado(**cambios):
+    aviso = {
+        "id": 99,
+        "created_at": "2026-10-22T16:00:00",
+        "lat": UBICACION[0],
+        "lon": UBICACION[1],
+        "tipo": "nido",
+        "especie": "velutina",
+        "confianza": 0.9,
+        "fuente_clasificacion": "yolo+llm",
+        "explicacion": "Nido compatible con velutina.",
+        "foto_path": "",
+        "duplicado_de": None,
+        "estado": "nuevo",
+        "rasgos_observados": ["Nido redondeado", "Avispas en la entrada"],
+        "consejo_foto": "",
+        "duplicado_distancia_m": None,
+        "duplicado_fecha": None,
+    }
+    aviso.update(cambios)
+    return aviso
 
 
 @pytest.fixture
@@ -58,78 +83,107 @@ def test_no_conserva_imagen_enorme():
         leer_fotografia(salida.getvalue())
 
 
-def test_inicio_y_validacion_sin_foto():
+def test_fotos_de_demo_disponibles():
+    nombres = {foto.name for foto in fotos_demo()}
+    assert {"velutina_1.jpg", "velutina_2.jpg", "crabro_1.jpg", "no_concluyente_1.jpg"} <= nombres
+    assert len(cargar_registros()) == 4
+
+
+def test_inicio_y_validacion_sin_ubicacion():
     app = AppTest.from_file(RAIZ / "app.py").run(timeout=30)
     assert not app.exception
     assert app.button[-1].disabled
-    assert any("Modo demostración" in aviso.value for aviso in app.info)
+    assert any("Demostración" in aviso.value for aviso in app.info)
     assert any("112" in texto.value for texto in app.markdown)
 
 
-def test_manifiesto_tiene_las_fotos_de_la_demo():
-    registros = cargar_registros()
-    assert len(registros) == 4
-    assert {registro["especie"] for registro in registros} == {
-        "velutina",
-        "crabro",
-        "no_concluyente",
-    }
-    assert all(registro["foto_path"].is_file() for registro in registros)
-
-
-@pytest.mark.parametrize("indice", range(len(cargar_registros())))
-def test_resultado_sale_de_la_clasificacion_guardada(indice):
-    registros = cargar_registros()
-    esperado = registros[indice]
-    app = _app()
-    app.run(timeout=30)
-    app.selectbox(key="foto_ejemplo").select_index(indice).run()
-    app.button[-1].click().run()
+def test_analizar_llama_al_pipeline_y_muestra_el_resultado():
+    with patch("core.pipeline.procesar", return_value=_resultado()) as procesar:
+        app = _app().run(timeout=30)
+        app.button[-1].click().run()
 
     assert not app.exception
-    resultado = app.session_state["resultado"]
-    assert resultado["especie"] == esperado["especie"]
-    assert resultado["confianza"] == pytest.approx(esperado["confianza"])
-    assert resultado["fuente_clasificacion"] == esperado["fuente_clasificacion"]
-    assert app.get("progress")[0].value == round(resultado["confianza"] * 100)
-
+    assert procesar.called
+    assert app.session_state["resultado"]["id"] == 99
+    assert app.get("progress")[0].value == 90
     texto = "\n".join(x.value for x in app.markdown)
+    assert "Posible nido de velutina" in texto
     assert "Rasgos observados" in texto
     assert "No te acerques al nido" in texto and "012" in texto and "112" in texto
-
-    avisos = "\n".join(x.value for x in app.warning)
-    assert "clasificación guardada" in avisos
-    if esperado["duplicado_de"] is not None:
-        assert "18 m" in avisos and "2026-10-21" in avisos
-    if esperado["especie"] == "no_concluyente":
-        assert "otra fotografía más nítida" in avisos
-
-    # Cambiar la entrada no puede dejar el resultado anterior en pantalla.
-    app.radio(key="tipo").set_value("Nido").run()
-    assert "resultado" not in app.session_state
-    assert not app.get("progress")
+    assert any("Aviso #99" in c.value for c in app.caption)
 
 
-def test_subir_una_foto_conocida_usa_su_clasificacion():
-    registro = next(r for r in cargar_registros() if r["especie"] == "crabro")
-    archivo = SimpleNamespace(getvalue=lambda: registro["foto_path"].read_bytes())
-    with patch("streamlit.file_uploader", return_value=archivo):
-        app = _app().run(timeout=30)
-        assert not any(box.key == "foto_ejemplo" for box in app.selectbox)
+def test_la_foto_original_llega_al_pipeline_con_su_gps():
+    original = BytesIO()
+    imagen = Image.new("RGB", (80, 60), "gray")
+    exif = imagen.getexif()
+    gps = exif.get_ifd(0x8825)
+    gps[1], gps[2] = "N", (42.0, 52.0, 41.5)
+    gps[3], gps[4] = "W", (8.0, 32.0, 41.3)
+    imagen.save(original, format="JPEG", exif=exif)
+    datos = original.getvalue()
+
+    archivo = SimpleNamespace(getvalue=lambda: datos)
+    with patch("streamlit.file_uploader", return_value=archivo), patch(
+        "core.pipeline.procesar", return_value=_resultado()
+    ) as procesar:
+        app = AppTest.from_file(RAIZ / "app.py").run(timeout=30)
         app.button[-1].click().run()
-        assert not app.exception
-        assert app.session_state["resultado"]["especie"] == "crabro"
+
+    assert not app.exception
+    enviado = procesar.call_args.args[0]
+    assert enviado == datos
+    assert geo.get_exif_gps(enviado) is not None
 
 
-def test_foto_no_clasificada_avisa_y_ofrece_ejemplos(foto):
-    with patch(
-        "streamlit.file_uploader",
-        return_value=SimpleNamespace(getvalue=lambda: foto),
-    ):
+def test_duplicado_y_consejo_se_muestran():
+    aviso = _resultado(
+        especie="velutina",
+        duplicado_de=7,
+        estado="duplicado",
+        duplicado_distancia_m=18.0,
+        duplicado_fecha="2026-10-21T09:12:00",
+    )
+    with patch("core.pipeline.procesar", return_value=aviso):
         app = _app().run(timeout=30)
-        assert not app.exception
-        assert any("no está entre las clasificadas" in aviso.value for aviso in app.info)
-        assert any(box.key == "foto_ejemplo" for box in app.selectbox)
+        app.button[-1].click().run()
+
+    avisos = "\n".join(w.value for w in app.warning)
+    assert "18 m" in avisos and "2026-10-21" in avisos
+
+
+def test_no_concluyente_muestra_consejo():
+    aviso = _resultado(
+        especie="no_concluyente",
+        confianza=0.0,
+        consejo_foto="Prueba con otra fotografía más nítida.",
+    )
+    with patch("core.pipeline.procesar", return_value=aviso):
+        app = _app().run(timeout=30)
+        app.button[-1].click().run()
+
+    avisos = "\n".join(w.value for w in app.warning)
+    assert "otra fotografía más nítida" in avisos
+    assert app.get("progress")[0].value == 0
+
+
+def test_error_del_pipeline_se_muestra_sin_resultado():
+    with patch("core.pipeline.procesar", side_effect=RuntimeError("sin clave")):
+        app = _app().run(timeout=30)
+        app.button[-1].click().run()
+
+    assert not app.exception
+    assert any("sin clave" in error.value for error in app.error)
+    assert "resultado" not in app.session_state
+
+
+def test_cambiar_el_tipo_retira_el_resultado():
+    with patch("core.pipeline.procesar", return_value=_resultado()):
+        app = _app().run(timeout=30)
+        app.button[-1].click().run()
+        assert "resultado" in app.session_state
+        app.radio(key="tipo").set_value("Nido").run()
+        assert "resultado" not in app.session_state
 
 
 def test_foto_invalida_no_permite_analizar():

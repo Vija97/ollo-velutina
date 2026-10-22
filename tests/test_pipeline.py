@@ -80,11 +80,8 @@ def test_si_yolo_y_llm_discrepan_no_concluyente(entorno, monkeypatch):
     assert aviso["consejo_foto"]
 
 
-def test_nido_no_pasa_por_yolo(entorno, monkeypatch):
-    def yolo_prohibido(_):
-        raise AssertionError("YOLO no debe usarse con tipo=nido")
-
-    monkeypatch.setattr(pipeline, "clasificar_yolo", yolo_prohibido)
+def test_nido_sin_deteccion_decide_el_llm(entorno, monkeypatch):
+    monkeypatch.setattr(pipeline, "clasificar_yolo", lambda _: None)
     monkeypatch.setattr(pipeline, "analizar_imagen", lambda *a, **k: _llm("velutina", "nido", 0.85))
 
     aviso = pipeline.procesar(b"nido", "nido", LAT, LON)
@@ -92,6 +89,39 @@ def test_nido_no_pasa_por_yolo(entorno, monkeypatch):
     assert aviso["tipo"] == "nido"
     assert aviso["especie"] == "velutina"
     assert aviso["fuente_clasificacion"] == "llm"
+
+
+def test_nido_con_yolo_confiable_manda_yolo(entorno, monkeypatch):
+    """En nidos el detector de avispas es estable; no se llama al LLM."""
+    def llm_prohibido(*_a, **_k):
+        raise AssertionError("Con YOLO fiable no se llama al LLM en un nido")
+
+    monkeypatch.setattr(
+        pipeline, "clasificar_yolo", lambda _: {"especie": "velutina", "confianza": 0.87}
+    )
+    monkeypatch.setattr(pipeline, "analizar_imagen", llm_prohibido)
+
+    aviso = pipeline.procesar(b"nido", "nido", LAT, LON)
+
+    assert aviso["tipo"] == "nido"
+    assert aviso["especie"] == "velutina"
+    assert aviso["confianza"] == pytest.approx(0.87)
+    assert aviso["fuente_clasificacion"] == "yolo"
+    assert aviso["rasgos_observados"]
+
+
+def test_nido_crabro_con_yolo_confiable(entorno, monkeypatch):
+    monkeypatch.setattr(
+        pipeline, "clasificar_yolo", lambda _: {"especie": "crabro", "confianza": 0.81}
+    )
+    monkeypatch.setattr(
+        pipeline, "analizar_imagen", lambda *_a, **_k: _llm("otra", "nido", 0.9)
+    )
+
+    aviso = pipeline.procesar(b"nido", "nido", LAT, LON)
+
+    assert aviso["especie"] == "crabro"
+    assert aviso["tipo"] == "nido"
 
 
 def test_confianza_baja_decide_el_llm(entorno, monkeypatch):

@@ -15,6 +15,18 @@ EXPLICACION_YOLO = {
     "velutina": "Cuerpo oscuro con banda naranja ancha en el abdomen y patas con extremos amarillos.",
     "crabro": "Tórax rojizo y abdomen mayoritariamente amarillo; avispón europeo autóctono.",
 }
+RASGOS_YOLO = {
+    "velutina": [
+        "Cuerpo mayoritariamente oscuro",
+        "Banda anaranjada en el abdomen",
+        "Extremos de las patas amarillos",
+    ],
+    "crabro": [
+        "Tórax de tono rojizo",
+        "Abdomen mayoritariamente amarillo",
+        "Patas marrones",
+    ],
+}
 CONSEJO_OTRA_FOTO = (
     "Haz otra foto más cerca y con buena luz, enfocando al insecto o al nido "
     "sin acercarte a él."
@@ -34,18 +46,29 @@ def _no_concluyente(tipo: str, explicacion: str = "La imagen no permite una iden
 
 def _clasificar(imagen_bytes: bytes, tipo: str) -> tuple[dict, str]:
     """Devuelve (resultado de clasificación, fuente_clasificacion)."""
-    yolo = clasificar_yolo(imagen_bytes) if tipo != "nido" else None
+    # YOLO también en nidos: detecta las avispas sobre el nido y es estable.
+    yolo = clasificar_yolo(imagen_bytes)
     resumen = f"{yolo['especie']} {yolo['confianza']:.2f}" if yolo else ""
 
     # YOLO con confianza suficiente: manda YOLO; el LLM solo aporta la explicación.
     if yolo and yolo["confianza"] >= UMBRAL_CONFIANZA:
         especie = yolo["especie"]
+        if tipo == "nido":
+            # En nidos el detector es estable y rápido; no dependemos del LLM.
+            return {
+                "tipo": "nido",
+                "especie": especie,
+                "confianza": yolo["confianza"],
+                "rasgos_observados": RASGOS_YOLO.get(especie, []),
+                "explicacion": EXPLICACION_YOLO.get(especie, ""),
+                "consejo_foto": "",
+            }, "yolo"
         try:
             llm = analizar_imagen(imagen_bytes, tipo, resumen)
         except Exception:
             llm = None
         if llm and llm["especie"] not in ("no_concluyente", especie):
-            # Los dos modelos discrepan: no nos la jugamos (spec §5.3).
+            # En insectos, si YOLO y el LLM discrepan, no nos la jugamos (spec §5.3).
             return _no_concluyente(
                 "insecto", "El modelo de imagen y el análisis visual no coinciden."
             ), "yolo+llm"

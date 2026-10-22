@@ -1,11 +1,16 @@
-# Probar la pantalla principal · issue #8
+# Probar la pantalla principal · issues #8 y #12
 
-La pantalla principal funciona con **fotografías de demo ya clasificadas**. La
-especie y la confianza que se muestran salen de ejecutar `models/best.pt` sobre
-cada foto y guardar el resultado en `demo_images/clasificaciones.csv`; la app no
-vuelve a analizar la imagen. No implementa la página del mapa (#9), los botones
-del 012 (#11) ni la conexión al pipeline (#12). `core/` y sus contratos no se
-modifican.
+La pantalla principal analiza la fotografía en vivo con `core.pipeline.procesar`
+(YOLO + LLM), guarda el aviso en SQLite y lo deja disponible para el mapa. Ya no
+usa clasificaciones guardadas ni resultados inventados.
+
+Reparto de la clasificación:
+
+- **Nido con YOLO ≥ 0,70**: manda YOLO (es estable y rápido); no se llama al LLM.
+- **Nido sin detección** o confianza baja: decide el LLM.
+- **Insecto**: YOLO con confianza ≥ 0,70 y el LLM redacta la explicación; si
+  discrepan, `no_concluyente`.
+- **Foto borrosa**: `no_concluyente` con consejo para otra foto.
 
 ## Qué se puede probar
 
@@ -16,44 +21,35 @@ modifican.
    streamlit run app.py
    ```
 
-2. Abre la dirección que aparece en la terminal (`http://localhost:8501`).
-3. En **01 · Tu fotografía**, elige una **Fotografía de ejemplo**: velutina,
-   velutina duplicada, avispón europeo o no concluyente. También puedes subir
-   una de las cuatro fotos de `demo_images/`; se reconocen por su contenido.
-   Si subes otra foto, la app avisa de que no está clasificada y ofrece las de
-   ejemplo.
-4. Elige **Insecto**, **Nido** o **No lo sé**. En esta fase el tipo y la especie
-   se toman de la clasificación guardada.
-5. Pulsa en el mapa para situar el encuentro. También puedes abrir **Elegir
-   coordenadas o usar una ubicación de ejemplo** y elegir la ETSE.
-6. Pulsa **Analizar fotografía**.
+2. Elige una **fotografía de ejemplo** o sube una tuya (JPG, PNG o WEBP, ≤10 MB).
+   Si la foto tiene GPS en el EXIF, la ubicación se rellena sola.
+3. Elige **Nido** para `velutina_1.jpg`/`velutina_2.jpg`/`crabro_1.jpg`, o
+   **No lo sé** para la borrosa. Pulsa en el mapa si la foto no trae GPS.
+4. Pulsa **Analizar fotografía**. Tarda ~5 s en los nidos con detección.
 
-Los cuatro casos cubren la comprobación de #8: nido de velutina, nido de avispón
-europeo, duplicado (18 m, con fecha) y no concluyente (con consejo para otra foto). Los
-mensajes de seguridad aparecen siempre. Al cambiar la foto, el tipo o el lugar,
-el resultado anterior se retira hasta volver a analizar.
+Resultados esperados con las fotos de demo:
 
-La ubicación se elige manualmente: todavía no se extrae el GPS de los metadatos.
-Las fotos se validan y normalizan en memoria para mostrarlas, sin escribir nada
-en disco ni llamar a ninguna API.
+| Foto | Tipo elegido | Resultado |
+|---|---|---|
+| `velutina_1.jpg` | Nido | Posible nido de velutina · 87 % |
+| `velutina_2.jpg` | Nido | Posible nido de velutina · 83 % |
+| `crabro_1.jpg` | Nido | Nido de avispón europeo · 87 % |
+| `no_concluyente_1.jpg` | No lo sé | No concluyente · consejo |
 
-El mapa necesita acceso a `cdn.jsdelivr.net` y `tile.openstreetmap.org`. Si no
-carga, la entrada manual de coordenadas permite continuar.
+El aviso se guarda en `data/avisos.db` y aparece en la página **Mapa**. Para
+probar el duplicado, analiza dos fotos con coordenadas a menos de 50 m (el seed
+ya tiene avisos cerca de la ETSE: elige un punto limpio para la primera foto).
 
-## Procedencia de las fotos
+Las fotos de `demo_images/` son fotogramas del dataset CC BY 4.0; fuente y
+licencia en `demo_images/FUENTES.md`. El dataset completo vive en `datasets/` y
+está excluido por `.gitignore`.
 
-Las cuatro son fotogramas del split `test` del dataset de Roboflow
-«[Original] Vespa crabro and Vespa Velutina» v2 (**CC BY 4.0**). Fuente y licencia
-de cada archivo, en `demo_images/FUENTES.md`. El dataset completo no se
-redistribuye: vive en `datasets/` y `.gitignore` lo excluye.
+## Limitación conocida
 
-Las clasificaciones del manifiesto se generaron con:
-
-```python
-from ultralytics import YOLO
-modelo = YOLO("models/best.pt")
-modelo.predict(source="demo_images/velutina_1.jpg", imgsz=640, device="cpu")
-```
+El LLM de la cuenta (DeepSeek V4.1 Flash vía OpenRouter) es **inestable** al
+clasificar nidos y puede tardar hasta 20 s. Por eso los nidos con detección YOLO
+no dependen de él. Si se fuerza el camino LLM en un nido, la especie puede variar
+entre llamadas; es una limitación del proveedor, no del pipeline.
 
 ## Comprobaciones
 
@@ -63,17 +59,9 @@ Desde la raíz:
 python -m pytest -q
 ```
 
-**16 pruebas superadas en esta rama** (22 al fusionar también el mapa de #9): inicio, validación de imágenes, manifiesto, un
-resultado por cada foto (velutina, crabro, duplicado y no concluyente), confianza,
-rasgos, consejos, seguridad, retirada de resultados antiguos, subida por huella,
-foto no clasificada, cámara simulada y el mapa de #9.
+**54 pruebas superadas**: imágenes, pipeline (YOLO, LLM, nido, discrepancia,
+duplicado), base de datos, geo, mapa, pantalla, cámara simulada y errores.
 
-Además se ha probado en Chromium con la app real: selección de las cuatro fotos,
-subida por el control de archivos, clic en el mapa, popup y casos de duplicado y
-no concluyente. La cámara física del portátil debe probarse antes de la demo.
-
-## Seguimiento en GitHub
-
-La issue #8 está asignada a `IagoVarelaR`. Con esta entrega se cumplen sus tres
-comprobaciones, así que la PR puede usar `Closes #8`. La conexión al modelo en
-vivo sigue siendo #12.
+Probado en Chromium: las cuatro fotos, subida real, GPS EXIF, resultado, aviso
+guardado y aparición en el mapa. La cámara física del portátil debe probarse
+antes de la demo.
