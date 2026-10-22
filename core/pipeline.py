@@ -69,7 +69,8 @@ def _clasificar(imagen_bytes: bytes, tipo: str) -> tuple[dict, str]:
             "confianza": confianza,
             "rasgos_observados": (llm or {}).get("rasgos_observados", []),
             "explicacion": (llm or {}).get("explicacion") or EXPLICACION_YOLO.get(especie, ""),
-            "consejo_foto": "",
+            # Con confianza baja se pide otra foto, también si la especie es velutina (AGENTS.md).
+            "consejo_foto": CONSEJO_OTRA_FOTO if confianza < UMBRAL_CONFIANZA else "",
         }
         return resultado, "yolo+llm" if llm else "yolo"
 

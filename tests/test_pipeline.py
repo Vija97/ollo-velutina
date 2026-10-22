@@ -169,3 +169,14 @@ def test_si_el_llm_lanza_excepcion_se_mantiene_el_criterio(entorno, monkeypatch)
     monkeypatch.setattr(pipeline, "analizar_imagen", revienta)
 
     assert pipeline.procesar(b"foto", "insecto", LAT, LON)["especie"] == "no_concluyente"
+
+
+def test_velutina_con_confianza_baja_pide_otra_foto(entorno, monkeypatch):
+    """Aunque gane velutina, si la confianza es baja se pide otra foto (AGENTS.md)."""
+    monkeypatch.setattr(pipeline, "clasificar_yolo", lambda _: {"especie": "crabro", "confianza": 0.93})
+    monkeypatch.setattr(pipeline, "analizar_imagen", lambda *a, **k: _llm("velutina", "insecto", 0.3))
+
+    aviso = pipeline.procesar(b"foto", "insecto", LAT, LON)
+    assert aviso["especie"] == "velutina"
+    assert aviso["confianza"] == pytest.approx(0.3)
+    assert aviso["consejo_foto"]
