@@ -35,7 +35,7 @@ Regla de oro: si a las 16:45 algo no funciona, se recorta, no se arregla.
 
 ## Pitch (3 minutos)
 **1. Gancho (20 s)**
-"El año pasado se retiraron en Galicia más de 24.500 nidos de velutina. Pero más de 3.100 avisos acabaron en nidos inactivos, de otras especies o duplicados. Cada uno, un operario desplazado para nada."
+"El año pasado se retiraron en Galicia más de 24.500 nidos de velutina. Pero más de 3.100 avisos no acabaron en una retirada: entre ellos, nidos de otras especies y avisos repetidos. Cada uno, un operario desplazado para nada."
 
 **2. Solución (20 s)**
 "Ollo Velutina filtra antes de avisar: haces una foto, la IA te dice si es velutina, comprueba si ya está avisado y te prepara el aviso para el 012."
@@ -57,4 +57,5 @@ Velutina → resultado con confianza → aparece en el mapa → segunda foto del
 - **"¿Por qué no usar solo ChatGPT/Claude?"** → El modelo propio es más rápido, barato y medible; el LLM entra solo donde aporta (nidos, explicación).
 - **"¿Cómo lo financiáis?"** → Licencia a concellos/Xunta (B2G) y a asociaciones apícolas; datos agregados de la invasión.
 - **"¿Ya existe algo así?"** → La Xunta tiene 012, chatbot y agente virtual para recoger avisos; en Reino Unido existe VespAI para detección automática. Nadie filtra y deduplica los avisos ciudadanos antes de que lleguen al 012 en Galicia.
+- **"¿Detecta si un nido está inactivo?"** → No, eso no se ve en una foto. Atacamos dos causas de avisos inútiles: la especie equivocada y el aviso repetido.
 - **"¿Privacidad?"** → Solo se guarda la ubicación del nido y la foto, sin datos personales.
