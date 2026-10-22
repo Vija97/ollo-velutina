@@ -1,6 +1,9 @@
-"""Llamadas a Claude: análisis de imagen y texto del aviso al 012 (spec §7). Responsable: IA."""
+"""Llamadas a la API de OpenCode: análisis de imagen y texto del aviso al 012 (spec §7). Responsable: IA."""
 
-MODELO = "claude-sonnet-5-5"
+import os
+
+# El modelo con visión se elige en la configuración de OpenCode; aquí solo se puede sobreescribir.
+MODELO = os.environ.get("OPENCODE_MODEL", "")
 
 
 def analizar_imagen(imagen_bytes: bytes, tipo: str, yolo_resumen: str = "") -> dict:
