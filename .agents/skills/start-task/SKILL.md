@@ -25,7 +25,11 @@ correcta y sabiendo qué parte de la spec aplica. No implementar nada aquí.
    git switch -c <tipo>/<n>-<slug>
    ```
    `tipo` ∈ `feat`, `fix`, `docs`, `chore`. Si `pull --ff-only` falla, parar.
-4. Asignar la Issue a quien trabaja: `gh issue edit <n> --add-assignee @me`.
+4. Asignar la Issue a quien trabaja (`gh issue edit <n> --add-assignee @me`) y
+   moverla a `En curso` en el tablero de `.github/project-config.json`
+   (`gh project item-list` para el id del item, `gh project field-list` para el
+   campo Status, `gh project item-edit` para cambiarlo). Avisar si alguna Issue
+   de "Depende de" no está en `Hechas`.
 5. Localizar el contexto: leer las secciones de `docs/contexto/03_especificacion_tecnica.md`
    que tocan la tarea y los archivos de `core/`/`pages/` implicados. Señalar si
    la tarea cambia un contrato de `core/` o el esquema de `avisos` (hay que avisar
