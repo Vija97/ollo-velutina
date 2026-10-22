@@ -69,15 +69,52 @@ def test_foto_borrosa_es_no_concluyente(entorno, monkeypatch):
     assert aviso["fuente_clasificacion"] == "llm"
 
 
-def test_si_yolo_y_llm_discrepan_no_concluyente(entorno, monkeypatch):
+def test_si_discrepan_gana_velutina(entorno, monkeypatch):
+    """YOLO velutina + LLM crabro: ante la duda, avisamos de velutina."""
     monkeypatch.setattr(pipeline, "clasificar_yolo", lambda _: {"especie": "velutina", "confianza": 0.95})
     monkeypatch.setattr(pipeline, "analizar_imagen", lambda *a, **k: _llm("crabro", "insecto", 0.9))
 
-    aviso = pipeline.procesar(b"foto", "insecto", LAT, LON)
+    assert pipeline.procesar(b"foto", "insecto", LAT, LON)["especie"] == "velutina"
 
-    assert aviso["especie"] == "no_concluyente"
-    assert aviso["confianza"] == 0.0
-    assert aviso["consejo_foto"]
+
+def test_yolo_crabro_pero_llm_velutina_gana_velutina(entorno, monkeypatch):
+    monkeypatch.setattr(pipeline, "clasificar_yolo", lambda _: {"especie": "crabro", "confianza": 0.93})
+    monkeypatch.setattr(pipeline, "analizar_imagen", lambda *a, **k: _llm("velutina", "insecto", 0.8))
+
+    aviso = pipeline.procesar(b"foto", "insecto", LAT, LON)
+    assert aviso["especie"] == "velutina"
+    assert aviso["confianza"] == pytest.approx(0.8)
+
+
+def test_no_se_sesga_al_llm_con_el_crabro_de_yolo(entorno, monkeypatch):
+    """Al LLM no se le dice que YOLO cree ver un crabro cuando hay duda."""
+    visto = {}
+
+    def llm_sin_sesgo(_img, _tipo, resumen=""):
+        visto["resumen"] = resumen
+        return _llm("velutina", "insecto", 0.8)
+
+    monkeypatch.setattr(pipeline, "clasificar_yolo", lambda _: {"especie": "crabro", "confianza": 0.9})
+    monkeypatch.setattr(pipeline, "analizar_imagen", llm_sin_sesgo)
+
+    pipeline.procesar(b"foto", "no_se", LAT, LON)
+    assert visto["resumen"] == ""
+
+
+def test_los_dos_crabro_dan_crabro(entorno, monkeypatch):
+    monkeypatch.setattr(pipeline, "clasificar_yolo", lambda _: {"especie": "crabro", "confianza": 0.9})
+    monkeypatch.setattr(pipeline, "analizar_imagen", lambda *a, **k: _llm("crabro", "insecto", 0.86))
+
+    aviso = pipeline.procesar(b"foto", "insecto", LAT, LON)
+    assert aviso["especie"] == "crabro"
+    assert aviso["confianza"] == pytest.approx(0.86)
+
+
+def test_si_el_llm_dice_otra_no_concluyente(entorno, monkeypatch):
+    monkeypatch.setattr(pipeline, "clasificar_yolo", lambda _: {"especie": "crabro", "confianza": 0.9})
+    monkeypatch.setattr(pipeline, "analizar_imagen", lambda *a, **k: _llm("otra", "insecto", 0.7))
+
+    assert pipeline.procesar(b"foto", "insecto", LAT, LON)["especie"] == "no_concluyente"
 
 
 def test_nido_no_pasa_por_yolo(entorno, monkeypatch):
@@ -102,3 +139,33 @@ def test_confianza_baja_decide_el_llm(entorno, monkeypatch):
 
     assert aviso["especie"] == "velutina"
     assert aviso["fuente_clasificacion"] == "llm"
+
+
+def test_sin_segunda_opinion_no_se_afirma_crabro(entorno, monkeypatch):
+    """Si el LLM falla, un 'crabro' de YOLO no se da por bueno: se pide otra foto."""
+    monkeypatch.setattr(pipeline, "clasificar_yolo", lambda _: {"especie": "crabro", "confianza": 0.93})
+    monkeypatch.setattr(pipeline, "analizar_imagen", lambda *a, **k: _llm("no_concluyente", "insecto", 0.0))
+
+    aviso = pipeline.procesar(b"foto", "insecto", LAT, LON)
+    assert aviso["especie"] == "no_concluyente"
+    assert aviso["consejo_foto"]
+
+
+def test_sin_segunda_opinion_velutina_se_mantiene(entorno, monkeypatch):
+    """Si YOLO avisa de velutina y el LLM falla, se mantiene el aviso: es el lado seguro."""
+    monkeypatch.setattr(pipeline, "clasificar_yolo", lambda _: {"especie": "velutina", "confianza": 0.91})
+    monkeypatch.setattr(pipeline, "analizar_imagen", lambda *a, **k: _llm("no_concluyente", "insecto", 0.0))
+
+    aviso = pipeline.procesar(b"foto", "insecto", LAT, LON)
+    assert aviso["especie"] == "velutina"
+    assert aviso["confianza"] == pytest.approx(0.91)
+
+
+def test_si_el_llm_lanza_excepcion_se_mantiene_el_criterio(entorno, monkeypatch):
+    def revienta(*_a, **_k):
+        raise RuntimeError("sin red")
+
+    monkeypatch.setattr(pipeline, "clasificar_yolo", lambda _: {"especie": "crabro", "confianza": 0.9})
+    monkeypatch.setattr(pipeline, "analizar_imagen", revienta)
+
+    assert pipeline.procesar(b"foto", "insecto", LAT, LON)["especie"] == "no_concluyente"

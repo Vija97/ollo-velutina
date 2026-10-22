@@ -37,25 +37,38 @@ def _clasificar(imagen_bytes: bytes, tipo: str) -> tuple[dict, str]:
     yolo = clasificar_yolo(imagen_bytes) if tipo != "nido" else None
     resumen = f"{yolo['especie']} {yolo['confianza']:.2f}" if yolo else ""
 
-    # YOLO con confianza suficiente: manda YOLO; el LLM solo aporta la explicación.
+    # YOLO con confianza suficiente: contrastamos con el LLM antes de decidir.
     if yolo and yolo["confianza"] >= UMBRAL_CONFIANZA:
-        especie = yolo["especie"]
+        # No sesgamos al LLM con un "crabro" de YOLO: es justo donde falla.
+        resumen_llm = "" if yolo["especie"] == "crabro" else resumen
         try:
-            llm = analizar_imagen(imagen_bytes, tipo, resumen)
+            llm = analizar_imagen(imagen_bytes, tipo, resumen_llm)
         except Exception:
             llm = None
-        if llm and llm["especie"] not in ("no_concluyente", especie):
-            # Los dos modelos discrepan: no nos la jugamos (spec §5.3).
+
+        especie_llm = (llm or {}).get("especie", "no_concluyente")
+        if "velutina" in (yolo["especie"], especie_llm):
+            # Ante la duda gana la velutina: un falso "crabro" deja pasar una invasora.
+            especie = "velutina"
+            if especie_llm == "velutina":
+                confianza = float(llm["confianza"])
+                if yolo["especie"] == "velutina":
+                    confianza = max(confianza, yolo["confianza"])
+            else:
+                confianza = yolo["confianza"]
+        elif yolo["especie"] == "crabro" and especie_llm == "crabro":
+            especie, confianza = "crabro", min(yolo["confianza"], float(llm["confianza"]))
+        else:
             return _no_concluyente(
                 "insecto", "El modelo de imagen y el análisis visual no coinciden."
             ), "yolo+llm"
-        explicacion = (llm or {}).get("explicacion") or EXPLICACION_YOLO.get(especie, "")
+
         resultado = {
             "tipo": "insecto",
             "especie": especie,
-            "confianza": yolo["confianza"],
+            "confianza": confianza,
             "rasgos_observados": (llm or {}).get("rasgos_observados", []),
-            "explicacion": explicacion,
+            "explicacion": (llm or {}).get("explicacion") or EXPLICACION_YOLO.get(especie, ""),
             "consejo_foto": "",
         }
         return resultado, "yolo+llm" if llm else "yolo"
