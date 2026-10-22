@@ -1,9 +1,9 @@
 # Plan del día y pitch: Ollo Velutina
 
 ## Esta noche (miércoles), en este orden
-1. **Crear el proyecto en Claude** con las instrucciones y los archivos 02, 03 y 05 como conocimiento (el 04 se pega como primer mensaje mañana).
+1. **Crear el proyecto en OpenCode** con las instrucciones y los archivos 02, 03 y 05 como conocimiento (el 04 se pega como primer mensaje mañana).
 2. **Entrenar el YOLO en Colab** (sección 6 de la especificación). Guardar `best.pt`, `confusion_matrix.png` y las métricas. Si falla, no pasa nada: plan B solo LLM.
-3. **Claves**: API de Claude y de Roboflow funcionando y probadas con una llamada.
+3. **Claves**: API de OpenCode y de Roboflow funcionando y probadas con una llamada.
 4. **Fotos de demo** en `demo_images/` (ver especificación §9). Para el duplicado, dos fotos del mismo nido con GPS cercano, o asignar coordenadas a mano.
 5. **Fase 0 hecha en casa**: repo creado, entorno instalado en los 4 portátiles, `streamlit run` funcionando.
 6. Nombre definitivo y logo sencillo.
@@ -35,7 +35,7 @@ Regla de oro: si a las 16:45 algo no funciona, se recorta, no se arregla.
 
 ## Pitch (3 minutos)
 **1. Gancho (20 s)**
-"El año pasado se retiraron en Galicia más de 24.500 nidos de velutina. Pero más de 3.100 avisos acabaron en nidos inactivos, de otras especies o duplicados. Cada uno, un operario desplazado para nada."
+"El año pasado se retiraron en Galicia más de 24.500 nidos de velutina. Pero más de 3.100 avisos no acabaron en una retirada: entre ellos, nidos de otras especies y avisos repetidos. Cada uno, un operario desplazado para nada."
 
 **2. Solución (20 s)**
 "Ollo Velutina filtra antes de avisar: haces una foto, la IA te dice si es velutina, comprueba si ya está avisado y te prepara el aviso para el 012."
@@ -57,4 +57,5 @@ Velutina → resultado con confianza → aparece en el mapa → segunda foto del
 - **"¿Por qué no usar solo ChatGPT/Claude?"** → El modelo propio es más rápido, barato y medible; el LLM entra solo donde aporta (nidos, explicación).
 - **"¿Cómo lo financiáis?"** → Licencia a concellos/Xunta (B2G) y a asociaciones apícolas; datos agregados de la invasión.
 - **"¿Ya existe algo así?"** → La Xunta tiene 012, chatbot y agente virtual para recoger avisos; en Reino Unido existe VespAI para detección automática. Nadie filtra y deduplica los avisos ciudadanos antes de que lleguen al 012 en Galicia.
+- **"¿Detecta si un nido está inactivo?"** → No, eso no se ve en una foto. Atacamos dos causas de avisos inútiles: la especie equivocada y el aviso repetido.
 - **"¿Privacidad?"** → Solo se guarda la ubicación del nido y la foto, sin datos personales.

@@ -1,0 +1,74 @@
+{
+  "modelo": {
+    "arquitectura": "yolo11n",
+    "pesos": "models/best.pt",
+    "epochs": 40,
+    "imgsz": 640,
+    "batch": 16,
+    "device_entrenamiento": "mps (Apple M5 Pro)",
+    "seed": 42,
+    "parametros": 2597294,
+    "tiempo_entrenamiento_s": 438
+  },
+  "dataset": {
+    "fuente": "Roboflow hornet-behavior · [Original] Vespa crabro and Vespa Velutina · v2",
+    "url": "https://universe.roboflow.com/hornet-behavior/-original-vespa-crabro-and-vespa-velutina/dataset/2",
+    "licencia": "CC BY 4.0",
+    "imagenes": 364,
+    "secuencias_de_video": 19,
+    "clases": ["Vespa-Crabro", "Vespa-Velutina"]
+  },
+  "split": {
+    "protocolo": "por secuencia de vídeo: ningún frame de un vídeo de test está en train",
+    "train": { "imagenes": 234, "secuencias": 11 },
+    "valid": {
+      "imagenes": 59,
+      "secuencias": ["MAH06732", "MAH06395", "Vespa-crabro-Germany-3", "Vespa-crabro-Pete-Roof-2"]
+    },
+    "test": {
+      "imagenes": 71,
+      "secuencias": ["MAH00002", "MAH06782", "Vespa-crabro-Germany-1", "Vespa-crabro-Pete-Roof-3"]
+    }
+  },
+  "valid": {
+    "imagenes": 59,
+    "instancias": 136,
+    "precision": 0.615,
+    "recall": 0.605,
+    "mAP50": 0.635,
+    "mAP50_95": 0.292
+  },
+  "test": {
+    "imagenes": 71,
+    "instancias": 157,
+    "precision": 0.396,
+    "recall": 0.49,
+    "mAP50": 0.389,
+    "mAP50_95": 0.147,
+    "por_clase": {
+      "Vespa-Crabro": { "imagenes": 34, "instancias": 58, "precision": 0.337, "recall": 0.845, "mAP50": 0.591, "mAP50_95": 0.223 },
+      "Vespa-Velutina": { "imagenes": 37, "instancias": 99, "precision": 0.455, "recall": 0.135, "mAP50": 0.188, "mAP50_95": 0.0703 }
+    }
+  },
+  "umbral_demo_0_70": {
+    "imagenes_aceptadas": 40,
+    "cobertura": 0.563,
+    "acierto_entre_aceptadas": 0.65,
+    "velutina_acertadas": 1,
+    "velutina_en_test": 37,
+    "crabro_acertadas": 25,
+    "crabro_en_test": 34
+  },
+  "latencia_cpu": {
+    "inferencia_yolo_ms": 8.8,
+    "fin_a_fin_mediana_ms": 18,
+    "fin_a_fin_p95_ms": 18,
+    "fin_a_fin_max_ms": 905
+  },
+  "fugas_de_datos": {
+    "duplicados_exactos_entre_splits": 0,
+    "pares_casi_duplicados_en_el_split_original_de_roboflow": 420,
+    "nota": "El split de Roboflow reparte frames del mismo vídeo entre train y valid/test; por eso se rehizo por secuencia."
+  },
+  "limitacion_conocida": "El test contiene escenas de nido (MAH00002, MAH06782) que no aparecen en train. En ellas el modelo confunde velutina con crabro con confianza alta (hasta 0.83). En imágenes del dominio de train acierta (velutina 0.70-0.81, crabro 0.85). No sirve para decidir velutina sin el LLM."
+}

@@ -33,6 +33,14 @@ el orden indicado. **Cuentas de usuario: no.**
 5. Tras cada merge relevante, alguien ejecuta la demo completa
    (skill [demo-check](.agents/skills/demo-check/SKILL.md)).
 
+Tablero: [Ollo Velutina — Seguimiento](https://github.com/users/Vija97/projects/1)
+(config en `.github/project-config.json`). Cada Issue pasa por
+`Por hacer → En curso → En revisión → Hechas`; `Bloqueadas` exige escribir en la
+Issue el motivo y el siguiente paso. Quien coge una Issue se la asigna y la mueve
+a En curso; al abrir la PR, a En revisión; al fusionarse, a Hechas. Cada Issue
+indica de qué otras depende: no empezar una cuyas dependencias no están Hechas
+salvo con datos de ejemplo.
+
 `main` siempre arranca con `streamlit run app.py`. Nunca commits directos a `main`.
 Los agentes no aprueban ni fusionan PRs.
 
@@ -72,7 +80,7 @@ Valores cerrados (no inventar otros):
 
 ## Secretos, datos y licencias (el repo es público)
 
-- `ANTHROPIC_API_KEY` y la clave de Roboflow solo en `.streamlit/secrets.toml`
+- La clave de la **API de OpenCode** y la de Roboflow solo en `.streamlit/secrets.toml`
   o variables de entorno. Nunca en código, notebooks, capturas ni commits.
 - No subir datasets. Solo `models/best.pt`, métricas y las fotos de `demo_images/`
   cuya licencia permita redistribución (anotar fuente y licencia en
