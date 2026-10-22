@@ -1,7 +1,7 @@
 # Plan del día y pitch: Ollo Velutina
 
 ## Esta noche (miércoles), en este orden
-1. **Crear el proyecto en Claude** con las instrucciones y los archivos 02, 03 y 05 como conocimiento (el 04 se pega como primer mensaje mañana).
+1. **Crear el proyecto en OpenCode** con las instrucciones y los archivos 02, 03 y 05 como conocimiento (el 04 se pega como primer mensaje mañana).
 2. **Entrenar el YOLO en Colab** (sección 6 de la especificación). Guardar `best.pt`, `confusion_matrix.png` y las métricas. Si falla, no pasa nada: plan B solo LLM.
 3. **Claves**: API de OpenCode y de Roboflow funcionando y probadas con una llamada.
 4. **Fotos de demo** en `demo_images/` (ver especificación §9). Para el duplicado, dos fotos del mismo nido con GPS cercano, o asignar coordenadas a mano.
