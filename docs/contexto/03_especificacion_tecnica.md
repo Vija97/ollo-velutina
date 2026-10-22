@@ -17,7 +17,7 @@
 | App | **Streamlit** (Python 3.11) | El equipo domina Python; UI en minutos; `st.camera_input` y `st.file_uploader` |
 | Mapa | **folium + streamlit-folium** | Marcadores, clic para ubicar, heatmap |
 | Clasificador | **ultralytics YOLO11n** (detección) entrenado en Colab | Rápido de entrenar (20–40 min en GPU T4), se ejecuta en CPU |
-| LLM | **API de OpenCode** con visión (modelo configurable en OpenCode) | Nidos, casos dudosos, explicación y texto del aviso |
+| LLM | **DeepSeek V4.1 Flash** (`deepseek-v4.1-flash`) vía la **API de OpenCode** (clave del hackathon) | Nidos, casos dudosos, explicación y texto del aviso |
 | Datos | **SQLite** (`data/avisos.db`) | Cero configuración |
 | EXIF | **Pillow** | Extraer GPS de la foto |
 | Despliegue | Local en el portátil para la demo; opcional Streamlit Community Cloud | Menos riesgo |
@@ -123,11 +123,16 @@ Responde SOLO con un JSON válido con esta forma:
   "consejo_foto": "si no es concluyente, cómo hacer una foto mejor; si no, cadena vacía"
 }
 ```
-Llamada (esquema): petición HTTP a la **API de OpenCode** (servidor local) con
-`SYSTEM_ANALISIS`, la imagen en base64, el texto del usuario y `max_tokens=600`.
-El modelo con visión se configura en OpenCode, **no se fija en el código**. Sin
-SDK propietario: cliente HTTP estándar. Endpoint exacto, en la referencia de la
-API de OpenCode.
+Llamada (esquema): `POST https://opencode.ai/inference/openai/v1/chat/completions`
+(formato compatible con OpenAI, según https://opencode.ai/docs/zen/) con la cabecera
+`Authorization: Bearer <OPENCODE_API_KEY>`, `model="deepseek-v4.1-flash"`,
+`max_tokens=600`, un mensaje `system` con `SYSTEM_ANALISIS` y un mensaje `user` con
+el texto y la imagen como `{"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,<b64>"}}`.
+El modelo se puede sobreescribir con la variable `OPENCODE_MODEL`.
+
+**Por comprobar en vivo:** DeepSeek documenta que su modelo Flash acepta imágenes,
+pero OpenCode no dice si las reenvía. Si la llamada con imagen falla, avisar al
+equipo: sin visión, nidos y casos dudosos se quedan sin clasificar.
 Parsear con `json.loads`; si falla, reintentar una vez pidiendo "solo JSON"; si vuelve a fallar → `no_concluyente`.
 
 ### 7.2 Texto del aviso al 012

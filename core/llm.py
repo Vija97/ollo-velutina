@@ -2,8 +2,9 @@
 
 import os
 
-# El modelo con visión se elige en la configuración de OpenCode; aquí solo se puede sobreescribir.
-MODELO = os.environ.get("OPENCODE_MODEL", "")
+# DeepSeek V4.1 Flash vía la API de OpenCode (compatible con OpenAI); spec §7.1.
+ENDPOINT = "https://opencode.ai/inference/openai/v1/chat/completions"
+MODELO = os.environ.get("OPENCODE_MODEL", "deepseek-v4.1-flash")
 
 
 def analizar_imagen(imagen_bytes: bytes, tipo: str, yolo_resumen: str = "") -> dict:

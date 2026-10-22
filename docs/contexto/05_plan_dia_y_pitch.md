@@ -54,7 +54,7 @@ Velutina → resultado con confianza → aparece en el mapa → segunda foto del
 
 ## Preguntas probables del jurado
 - **"¿Y si se equivoca?"** → Muestra confianza, pide otra foto si es baja, y el operario sigue verificando. Reducimos falsas alarmas, no decidimos solas.
-- **"¿Por qué no usar solo ChatGPT/Claude?"** → El modelo propio es más rápido, barato y medible; el LLM entra solo donde aporta (nidos, explicación).
+- **"¿Por qué no usar solo un LLM como ChatGPT o DeepSeek?"** → El modelo propio es más rápido, barato y medible; el LLM entra solo donde aporta (nidos, explicación).
 - **"¿Cómo lo financiáis?"** → Licencia a concellos/Xunta (B2G) y a asociaciones apícolas; datos agregados de la invasión.
 - **"¿Ya existe algo así?"** → La Xunta tiene 012, chatbot y agente virtual para recoger avisos; en Reino Unido existe VespAI para detección automática. Nadie filtra y deduplica los avisos ciudadanos antes de que lleguen al 012 en Galicia.
 - **"¿Privacidad?"** → Solo se guarda la ubicación del nido y la foto, sin datos personales.
