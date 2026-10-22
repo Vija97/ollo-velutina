@@ -120,11 +120,13 @@ def test_en_insecto_manda_el_crabro_de_yolo(entorno, monkeypatch):
     assert aviso["confianza"] == pytest.approx(0.9)
 
 
-def test_en_nido_un_crabro_sin_confirmar_es_no_concluyente(entorno, monkeypatch):
+def test_en_nido_un_crabro_fiable_manda_yolo(entorno, monkeypatch):
     monkeypatch.setattr(pipeline, "clasificar_yolo", lambda _: {"especie": "crabro", "confianza": 0.9})
     monkeypatch.setattr(pipeline, "analizar_imagen", lambda *a, **k: _llm("otra", "nido", 0.7))
 
-    assert pipeline.procesar(b"nido", "nido", LAT, LON)["especie"] == "no_concluyente"
+    aviso = pipeline.procesar(b"nido", "nido", LAT, LON)
+    assert aviso["especie"] == "crabro"
+    assert aviso["confianza"] == pytest.approx(0.9)
 
 
 def test_nido_sin_deteccion_decide_el_llm(entorno, monkeypatch):
@@ -157,38 +159,43 @@ def test_nido_con_yolo_confiable_manda_yolo(entorno, monkeypatch):
     assert aviso["rasgos_observados"]
 
 
-def test_nido_crabro_de_yolo_no_manda_solo(entorno, monkeypatch):
-    """Un crabro de YOLO en un nido necesita confirmación: es el falso negativo típico."""
+def test_nido_crabro_con_yolo_fiable_manda_yolo(entorno, monkeypatch):
+    """Con el modelo de negativas, un crabro fiable no necesita segunda opinión."""
+    def llm_prohibido(*_a, **_k):
+        raise AssertionError("Con YOLO fiable no se llama al LLM en un nido")
+
     monkeypatch.setattr(
-        pipeline, "clasificar_yolo", lambda _: {"especie": "crabro", "confianza": 0.81}
+        pipeline, "clasificar_yolo", lambda _: {"especie": "crabro", "confianza": 0.88}
     )
-    monkeypatch.setattr(
-        pipeline, "analizar_imagen", lambda *_a, **_k: _llm("otra", "nido", 0.9)
-    )
+    monkeypatch.setattr(pipeline, "analizar_imagen", llm_prohibido)
 
     aviso = pipeline.procesar(b"nido", "nido", LAT, LON)
 
-    assert aviso["especie"] == "no_concluyente"
     assert aviso["tipo"] == "nido"
+    assert aviso["especie"] == "crabro"
+    assert aviso["confianza"] == pytest.approx(0.88)
+    assert aviso["fuente_clasificacion"] == "yolo"
+    assert aviso["rasgos_observados"]
 
 
-def test_nido_crabro_de_yolo_pero_llm_velutina(entorno, monkeypatch):
+def test_nido_crabro_en_el_umbral_usa_yolo(entorno, monkeypatch):
+    def llm_prohibido(*_a, **_k):
+        raise AssertionError("El umbral incluye el 0,70")
+
     monkeypatch.setattr(
-        pipeline, "clasificar_yolo", lambda _: {"especie": "crabro", "confianza": 0.83}
+        pipeline, "clasificar_yolo", lambda _: {"especie": "crabro", "confianza": 0.70}
     )
-    monkeypatch.setattr(
-        pipeline, "analizar_imagen", lambda *_a, **_k: _llm("velutina", "nido", 0.8)
-    )
+    monkeypatch.setattr(pipeline, "analizar_imagen", llm_prohibido)
 
     aviso = pipeline.procesar(b"nido", "nido", LAT, LON)
 
-    assert aviso["especie"] == "velutina"
-    assert aviso["tipo"] == "nido"
+    assert aviso["especie"] == "crabro"
+    assert aviso["confianza"] == pytest.approx(0.70)
 
 
-def test_nido_con_los_dos_crabro_se_confirma(entorno, monkeypatch):
+def test_nido_crabro_bajo_el_umbral_decide_el_llm(entorno, monkeypatch):
     monkeypatch.setattr(
-        pipeline, "clasificar_yolo", lambda _: {"especie": "crabro", "confianza": 0.85}
+        pipeline, "clasificar_yolo", lambda _: {"especie": "crabro", "confianza": 0.69}
     )
     monkeypatch.setattr(
         pipeline, "analizar_imagen", lambda *_a, **_k: _llm("crabro", "nido", 0.8)
@@ -198,6 +205,7 @@ def test_nido_con_los_dos_crabro_se_confirma(entorno, monkeypatch):
 
     assert aviso["especie"] == "crabro"
     assert aviso["tipo"] == "nido"
+    assert aviso["fuente_clasificacion"] == "llm"
 
 
 def test_confianza_baja_decide_el_llm(entorno, monkeypatch):
@@ -218,13 +226,14 @@ def test_en_insecto_sin_segunda_opinion_se_mantiene_el_crabro(entorno, monkeypat
     assert pipeline.procesar(b"foto", "insecto", LAT, LON)["especie"] == "crabro"
 
 
-def test_en_nido_sin_segunda_opinion_no_se_afirma_crabro(entorno, monkeypatch):
+def test_en_nido_crabro_fiable_no_necesita_segunda_opinion(entorno, monkeypatch):
     monkeypatch.setattr(pipeline, "clasificar_yolo", lambda _: {"especie": "crabro", "confianza": 0.93})
     monkeypatch.setattr(pipeline, "analizar_imagen", lambda *a, **k: _llm("no_concluyente", "nido", 0.0))
 
     aviso = pipeline.procesar(b"nido", "nido", LAT, LON)
-    assert aviso["especie"] == "no_concluyente"
-    assert aviso["consejo_foto"]
+    assert aviso["especie"] == "crabro"
+    assert aviso["confianza"] == pytest.approx(0.93)
+    assert not aviso["consejo_foto"]
 
 
 def test_sin_segunda_opinion_velutina_se_mantiene(entorno, monkeypatch):
@@ -245,7 +254,7 @@ def test_si_el_llm_lanza_excepcion(entorno, monkeypatch):
     monkeypatch.setattr(pipeline, "analizar_imagen", revienta)
 
     assert pipeline.procesar(b"foto", "insecto", LAT, LON)["especie"] == "crabro"
-    assert pipeline.procesar(b"nido", "nido", LAT, LON)["especie"] == "no_concluyente"
+    assert pipeline.procesar(b"nido", "nido", LAT, LON)["especie"] == "crabro"
 
 
 def test_velutina_con_confianza_baja_pide_otra_foto(entorno, monkeypatch):

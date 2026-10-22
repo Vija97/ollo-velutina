@@ -51,14 +51,14 @@ def _clasificar(imagen_bytes: bytes, tipo: str) -> tuple[dict, str]:
     resumen = f"{yolo['especie']} {yolo['confianza']:.2f}" if yolo else ""
 
     if yolo and yolo["confianza"] >= UMBRAL_CONFIANZA:
-        # Nido con velutina: el detector es rápido y estable, no hace falta el LLM.
-        if tipo == "nido" and yolo["especie"] == "velutina":
+        # Nido con YOLO fiable: el detector manda y no dependemos del LLM.
+        if tipo == "nido":
             return {
                 "tipo": "nido",
-                "especie": "velutina",
+                "especie": yolo["especie"],
                 "confianza": yolo["confianza"],
-                "rasgos_observados": RASGOS_YOLO["velutina"],
-                "explicacion": EXPLICACION_YOLO["velutina"],
+                "rasgos_observados": RASGOS_YOLO.get(yolo["especie"], []),
+                "explicacion": EXPLICACION_YOLO.get(yolo["especie"], ""),
                 "consejo_foto": "",
             }, "yolo"
 
