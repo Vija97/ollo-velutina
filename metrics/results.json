@@ -139,7 +139,7 @@
       }
     }
   },
-  "limitacion_conocida": "Un solo entrenamiento sobre un test pequeño (71 imágenes de 4 vídeos, sin nidos). El modelo con negativas sube la precisión y elimina las falsas alarmas, pero deja más casos en no_concluyente. Las cifras del pipeline dependen del umbral y de la respuesta del LLM.",
+  "limitacion_conocida": "Un solo entrenamiento sobre un test pequeño (71 imágenes de 4 secuencias). El test no tiene clase 'nido': dos de las secuencias (MAH00002 y MAH06782) son escenas de nido con avispas, etiquetadas como insectos. El modelo con negativas sube la precisión y elimina las falsas alarmas, pero deja más casos en no_concluyente (la cobertura del umbral 0,70 baja del 56 % al 22,5 %).",
   "verificacion_yolo": {
     "medido": {
       "precision": 0.578,
@@ -148,11 +148,33 @@
       "mAP50_95": 0.192
     },
     "comparacion_con_results_json": {
-      "coincide_0_01": true
+      "precision": {
+        "results_json": 0.578,
+        "medido": 0.578,
+        "diferencia": 0.0,
+        "coincide_0_01": true
+      },
+      "recall": {
+        "results_json": 0.525,
+        "medido": 0.525,
+        "diferencia": 0.0,
+        "coincide_0_01": true
+      },
+      "mAP50": {
+        "results_json": 0.539,
+        "medido": 0.539,
+        "diferencia": 0.0,
+        "coincide_0_01": true
+      }
     },
-    "save_dir": "/tmp/valneg/test"
+    "coincide_0_01": true,
+    "matrices_copiadas": [
+      "confusion_matrix.png",
+      "confusion_matrix_normalized.png"
+    ],
+    "save_dir": "no disponible: medido con model.val sobre datasets/ollo-split (local, no se sube)"
   },
-  "cifra_pitch": "En las 71 fotos de test, el flujo completo (YOLO nuevo + LLM) acierta 43 (61 %); entre los casos en los que se moja, acierta el 95,6 %. En 51 negativas de reserva: 0 falsas alarmas (antes 5). Fuente: metrics/results.json.",
+  "cifra_pitch": "En las 71 fotos de test el flujo completo acierta 43 (61 %); cuando se moja, acierta el 95,6 %. En 51 negativas de reserva: 0 falsas alarmas (antes 5). Contrapartida: se moja menos (16/71 frente a 40/71), porque prefiere decir 'no concluyente'. Fuente: metrics/results.json.",
   "fecha_evaluacion": "2026-10-22",
   "llm_test": {
     "n": 71,
@@ -162,22 +184,42 @@
     "modelo": "deepseek/deepseek-v4.1-flash-1017",
     "fecha": "2026-10-22",
     "definicion_acierto": "especie predicha igual a la clase mayoritaria real; 'otra' y 'no_concluyente' cuentan como fallo.",
-    "componentes": "LLM",
     "acierto_global": 0.4366,
     "aciertos": 31,
     "acierto_por_clase": {
-      "velutina": {
-        "aciertos": 21,
-        "total": 37,
-        "acierto": 0.5676
-      },
       "crabro": {
         "aciertos": 10,
         "total": 34,
         "acierto": 0.2941
+      },
+      "velutina": {
+        "aciertos": 21,
+        "total": 37,
+        "acierto": 0.5676
       }
     },
-    "pct_no_concluyente": 0.3662
+    "pct_no_concluyente": 0.3662,
+    "pct_otra": 0.169,
+    "acierto_entre_concluyentes": 0.6889,
+    "matriz_confusion": {
+      "crabro": {
+        "velutina": 2,
+        "crabro": 10,
+        "otra": 10,
+        "no_concluyente": 12
+      },
+      "velutina": {
+        "velutina": 21,
+        "crabro": 0,
+        "otra": 2,
+        "no_concluyente": 14
+      }
+    },
+    "componentes": "LLM",
+    "fuentes_clasificacion": {
+      "llm": 71
+    },
+    "commit_main": "acbf135f3a8c30865c100753c61ed066158ab21b"
   },
   "pipeline_test": {
     "n": 71,
@@ -187,23 +229,43 @@
     "modelo": "deepseek/deepseek-v4.1-flash-1017",
     "fecha": "2026-10-22",
     "definicion_acierto": "especie predicha igual a la clase mayoritaria real; 'otra' y 'no_concluyente' cuentan como fallo.",
-    "componentes": "YOLO nuevo (negativas) + LLM",
     "acierto_global": 0.6056,
     "aciertos": 43,
-    "acierto_entre_concluyentes": 0.9556,
     "acierto_por_clase": {
-      "velutina": {
-        "aciertos": 23,
-        "total": 37,
-        "acierto": 0.6216
-      },
       "crabro": {
         "aciertos": 20,
         "total": 34,
         "acierto": 0.5882
+      },
+      "velutina": {
+        "aciertos": 23,
+        "total": 37,
+        "acierto": 0.6216
       }
     },
-    "pct_no_concluyente": 0.3662
+    "pct_no_concluyente": 0.3662,
+    "pct_otra": 0.0141,
+    "acierto_entre_concluyentes": 0.9556,
+    "matriz_confusion": {
+      "crabro": {
+        "velutina": 1,
+        "crabro": 20,
+        "otra": 1,
+        "no_concluyente": 12
+      },
+      "velutina": {
+        "velutina": 23,
+        "crabro": 0,
+        "otra": 0,
+        "no_concluyente": 14
+      }
+    },
+    "componentes": "YOLO nuevo (negativas) + LLM",
+    "fuentes_clasificacion": {
+      "llm": 55,
+      "yolo+llm": 16
+    },
+    "commit_main": "acbf135f3a8c30865c100753c61ed066158ab21b"
   },
   "evaluacion": {
     "commit_main": "be44df3bf578e21b2183a01bfc5075fcfe9b5147",
