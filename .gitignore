@@ -7,6 +7,9 @@
 data/avisos.db
 data/fotos/
 
+# fotos de demo sin licencia que permita redistribuir (EPPO, VespApp, dudosas)
+demo_local/
+
 # datasets y salidas de entrenamiento (no se redistribuyen)
 datasets/
 runs/
