@@ -10,9 +10,14 @@ from datetime import datetime
 
 from PIL import Image, ImageOps
 
-# DeepSeek V4.1 Flash vía la API de OpenCode (formato compatible con OpenAI), spec §7.1.
-ENDPOINT = "https://opencode.ai/inference/openai/v1/chat/completions"
-MODELO = os.environ.get("OPENCODE_MODEL", "deepseek-v4.1-flash")
+# DeepSeek V4.1 Flash vía OpenRouter (formato OpenAI), spec §7.1.
+ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
+MODELO = os.environ.get("OPENCODE_MODEL", "deepseek/deepseek-v4.1-flash-1017")
+# Cloudflare bloquea el User-Agent por defecto de urllib (error 1010).
+USER_AGENT = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/131.0 Safari/537.36"
+)
 
 # §7.1, literal.
 SYSTEM_ANALISIS = """Eres un experto entomólogo en especies invasoras de Galicia. Analizas una foto enviada por un ciudadano para decidir si muestra una avispa velutina (Vespa velutina) o su nido.
@@ -58,7 +63,8 @@ class _TextoLLM(str):
 CLAVE = "OPENCODE_API_KEY"
 
 LADO_MAX = 1280  # px de lado máximo antes de enviar la imagen
-MAX_TOKENS = 600
+MAX_TOKENS = 2000  # el modelo razona antes de responder; 600 se queda corto
+RAZONAMIENTO = {"effort": "low"}
 
 CONSEJO_FOTO = (
     "Haz otra foto más cerca y con buena luz, enfocando al insecto o al nido "
@@ -87,9 +93,9 @@ def modelo() -> str:
 
 def _clave() -> str:
     """Clave de la API de OpenCode. Falla pronto si no está configurada."""
-    clave = _secreto(CLAVE)
+    clave = _secreto(CLAVE) or _secreto("OPENROUTER_API_KEY")
     if not clave:
-        raise ValueError(f"Falta {CLAVE} en .streamlit/secrets.toml o el entorno.")
+        raise ValueError(f"Falta {CLAVE} (o OPENROUTER_API_KEY) en .streamlit/secrets.toml o el entorno.")
     return clave
 
 
@@ -184,6 +190,7 @@ def _llamar(mensajes: list, sistema: str = SYSTEM_ANALISIS) -> str:
         "model": modelo(),
         "max_tokens": MAX_TOKENS,
         "messages": [{"role": "system", "content": sistema}, *mensajes],
+        "reasoning": RAZONAMIENTO,
     }
     peticion = urllib.request.Request(
         ENDPOINT,
@@ -191,6 +198,7 @@ def _llamar(mensajes: list, sistema: str = SYSTEM_ANALISIS) -> str:
         headers={
             "Content-Type": "application/json",
             "Authorization": f"Bearer {_clave()}",
+            "User-Agent": USER_AGENT,
         },
         method="POST",
     )
