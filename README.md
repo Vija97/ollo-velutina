@@ -4,6 +4,12 @@ Filtra los avisos de avispa velutina antes de que lleguen al 012: haces una foto
 la IA dice si es velutina, comprueba si ya hay un aviso cerca y prepara el aviso.
 Proyecto del Hackathon ETSE (USC, 22/10/2026).
 
+**Pruébala: https://ollo-velutina.streamlit.app**
+
+La web se despliega sola desde `main` en Streamlit Community Cloud. Es una
+demostración: la base de datos se reinicia con los avisos de ejemplo cuando la
+app se reinicia, y la identificación es orientativa.
+
 - Problema, especies, datasets y fuentes: [docs/contexto/02_contexto_velutina.md](docs/contexto/02_contexto_velutina.md)
 - Especificación técnica: [docs/contexto/03_especificacion_tecnica.md](docs/contexto/03_especificacion_tecnica.md)
 - Plan del día y pitch: [docs/contexto/05_plan_dia_y_pitch.md](docs/contexto/05_plan_dia_y_pitch.md)
